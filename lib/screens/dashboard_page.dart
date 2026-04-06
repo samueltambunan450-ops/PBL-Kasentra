@@ -62,6 +62,7 @@ class _DashboardPageState extends State<DashboardPage> {
         transaksi: _transaksi,
         role: widget.user.role,
         onDelete: _hapusTransaksi,
+        onEdit: _editTransaksi,
       ),
       // tambah
       AddTransactionPage(

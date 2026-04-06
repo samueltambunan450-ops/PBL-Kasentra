@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
+import '../models/cabang.dart';
 
 enum PeriodeFilter { hariIni, mingguIni, bulanIni }
 
@@ -23,10 +24,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
+  String? _selectedCabangId;
 
   List<Transaksi> get _filtered {
     final now = DateTime.now();
     return widget.transaksi.where((t) {
+      // Filter berdasarkan cabang jika dipilih
+      if (_selectedCabangId != null && t.cabangId != _selectedCabangId) {
+        return false;
+      }
       switch (filter) {
         case PeriodeFilter.hariIni:
           return t.tanggal.year == now.year &&
@@ -54,7 +60,21 @@ class _HomePageState extends State<HomePage> {
           .where((t) => t.jenis == TransaksiJenis.pengeluaran)
           .fold(0, (sum, t) => sum + t.nominal);
 
-  int get labaRugi => totalMasuk - totalKeluar;
+  double get modalAwal {
+    if (_selectedCabangId == null) {
+      // Jika semua cabang, jumlahkan modal awal semua cabang
+      return CabangRepository.instance.cabangs.fold(0.0, (sum, c) => sum + c.modalAwal);
+    } else {
+      // Cari cabang yang dipilih
+      final cabang = CabangRepository.instance.cabangs.firstWhere(
+        (c) => c.id == _selectedCabangId,
+        orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
+      );
+      return cabang.modalAwal;
+    }
+  }
+
+  double get saldoSaatIni => modalAwal + totalMasuk - totalKeluar;
 
   /// Data untuk grafik: pemasukan dan pengeluaran per hari dalam periode
   Map<String, Map<String, int>> get _chartData {
@@ -175,7 +195,61 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Kartu saldo + ringkasan laba/rugi
+                      // Filter cabang dan periode
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: "Cabang",
+                                border: OutlineInputBorder(),
+                              ),
+                              value: _selectedCabangId,
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text("Semua Cabang"),
+                                ),
+                                ...CabangRepository.instance.cabangs.map((c) =>
+                                  DropdownMenuItem(
+                                    value: c.id,
+                                    child: Text(c.nama),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedCabangId = value);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<PeriodeFilter>(
+                              decoration: const InputDecoration(
+                                labelText: "Periode",
+                                border: OutlineInputBorder(),
+                              ),
+                              value: filter,
+                              items: PeriodeFilter.values.map((f) {
+                                final label = f == PeriodeFilter.hariIni
+                                    ? "Hari ini"
+                                    : f == PeriodeFilter.mingguIni
+                                        ? "Minggu ini"
+                                        : "Bulan ini";
+                                return DropdownMenuItem(
+                                  value: f,
+                                  child: Text(label),
+                                );
+                              }).toList(),
+                              onChanged: (v) {
+                                if (v != null) setState(() => filter = v);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Kartu saldo + ringkasan
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.green,
@@ -191,6 +265,99 @@ class _HomePageState extends State<HomePage> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius:
+                                          BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Modal Awal",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        Text(
+                                          "Rp ${modalAwal.toInt()}",
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius:
+                                          BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Total Pemasukan",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        Text(
+                                          "Rp $totalMasuk",
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius:
+                                          BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Total Pengeluaran",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        Text(
+                                          "Rp $totalKeluar",
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
                                         vertical: 16, horizontal: 24),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
@@ -200,7 +367,7 @@ class _HomePageState extends State<HomePage> {
                                     child: Column(
                                       children: [
                                         Text(
-                                          "TOTAL SALDO SAAT INI",
+                                          "Saldo Saat Ini",
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 12,
@@ -209,7 +376,7 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          "Rp $labaRugi",
+                                          "Rp ${saldoSaatIni.toInt()}",
                                           style: const TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.bold,
@@ -221,85 +388,11 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    labaRugi >= 0
-                                        ? "Laba periode ini"
-                                        : "Rugi periode ini",
+                                    saldoSaatIni >= modalAwal
+                                        ? "Keuntungan periode ini"
+                                        : "Kerugian periode ini",
                                     style: const TextStyle(
                                       color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 16),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "PEMASUKAN PERIODE",
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            "Rp $totalMasuk",
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green[700]),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "PENGELUARAN PERIODE",
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            "Rp $totalKeluar",
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.red,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                   ),
                                 ],
@@ -309,42 +402,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Filter periode
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "Periode Laporan",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          DropdownButton<PeriodeFilter>(
-                            value: filter,
-                            items: const [
-                              DropdownMenuItem(
-                                value: PeriodeFilter.hariIni,
-                                child: Text("Hari ini"),
-                              ),
-                              DropdownMenuItem(
-                                value: PeriodeFilter.mingguIni,
-                                child: Text("Minggu ini"),
-                              ),
-                              DropdownMenuItem(
-                                value: PeriodeFilter.bulanIni,
-                                child: Text("Bulan ini"),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) {
-                                setState(() => filter = v);
-                              }
-                            },
-                          ),
-                        ],
-                      ),
 
                       const SizedBox(height: 12),
                       const Text(

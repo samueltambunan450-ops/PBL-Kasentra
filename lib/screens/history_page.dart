@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
+import 'add_transaction_page.dart';
 
 enum PeriodeFilter { hariIni, mingguIni, bulanIni }
 
@@ -9,12 +10,14 @@ class HistoryPage extends StatefulWidget {
   final List<Transaksi> transaksi;
   final UserRole role;
   final void Function(String id) onDelete;
+  final void Function(Transaksi) onEdit;
 
   const HistoryPage({
     super.key,
     required this.transaksi,
     required this.role,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -59,6 +62,22 @@ class _HistoryPageState extends State<HistoryPage> {
       "Des",
     ];
     return nama[bulan];
+  }
+
+  void _editTransaksi(Transaksi t) async {
+    final result = await Navigator.push<Transaksi>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTransactionPage(
+          onSaved: (updated) => Navigator.pop(context, updated),
+          transaksi: t,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      widget.onEdit(result);
+    }
   }
 
   @override
@@ -214,11 +233,21 @@ class _HistoryPageState extends State<HistoryPage> {
                                   if (widget.role == UserRole.owner)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: GestureDetector(
-                                        onTap: () =>
-                                            widget.onDelete(t.id),
-                                        child: const Icon(Icons.delete,
-                                            size: 16, color: Colors.red),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () => _editTransaksi(t),
+                                            child: const Icon(Icons.edit,
+                                                size: 16, color: Colors.blue),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          GestureDetector(
+                                            onTap: () => widget.onDelete(t.id),
+                                            child: const Icon(Icons.delete,
+                                                size: 16, color: Colors.red),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                 ],
