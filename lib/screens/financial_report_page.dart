@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../models/cabang.dart';
 import '../models/transaksi.dart';
+import '../widgets/common_page_scaffold.dart';
 
 class FinancialReportPage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -158,20 +159,29 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laporan Keuangan'),
-      ),
+    return CommonPageScaffold(
+      title: 'Laporan Keuangan',
+      subtitle: 'Laporan transaksi dan ringkasan',
+      actions: [
+        IconButton(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Export PDF akan diimplementasikan')),
+            );
+          },
+          icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+        ),
+      ],
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -191,8 +201,8 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedCabangId,
                                 decoration: InputDecoration(
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
                                 items: [
                                   const DropdownMenuItem(value: '', child: Text('Semua Cabang')),
@@ -220,8 +230,8 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedPeriod,
                                 decoration: InputDecoration(
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
                                 items: ['Harian', 'Mingguan', 'Bulanan'].map((period) => DropdownMenuItem(
                                       value: period,
@@ -251,7 +261,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                                     ? '${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.end)}'
                                     : 'Pilih Range Tanggal'),
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                 ),
                               ),
                             ],
@@ -262,7 +272,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                             width: 320,
                             child: Card(
                               color: Colors.grey.shade100,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                                 child: Row(
@@ -297,9 +307,9 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -322,9 +332,9 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

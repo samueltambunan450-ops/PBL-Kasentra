@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
+import '../services/domain_api_service.dart';
 import 'add_transaction_page.dart';
 import 'home_page.dart';
 import 'history_page.dart';
@@ -22,35 +23,57 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int currentIndex = 0;
-  final List<Transaksi> _transaksi = [];
+  bool _loading = true;
+  List<Transaksi> _transaksi = [];
 
-  void _tambahTransaksi(Transaksi t) {
+  @override
+  void initState() {
+    super.initState();
+    _refreshTransaksi();
+  }
+
+  Future<void> _refreshTransaksi() async {
+    try {
+      final list = await DomainApiService.fetchTransaksis();
+      if (!mounted) return;
+      setState(() {
+        _transaksi = list;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _tambahTransaksi(Transaksi t) async {
+    await DomainApiService.createTransaksi(t);
+    await _refreshTransaksi();
     setState(() {
-      _transaksi.add(t);
       currentIndex = 0;
     });
   }
 
-  void _hapusTransaksi(String id) {
-    setState(() {
-      _transaksi.removeWhere((t) => t.id == id);
-    });
+  Future<void> _hapusTransaksi(String id) async {
+    await DomainApiService.deleteTransaksi(id);
+    await _refreshTransaksi();
   }
 
-  void _editTransaksi(Transaksi updated) {
-    setState(() {
-      final idx = _transaksi.indexWhere((t) => t.id == updated.id);
-      if (idx != -1) {
-        _transaksi[idx] = updated;
-      }
-      // jangan ubah currentIndex agar jika user berada di riwayat
-      // tetap di sana setelah edit
-    });
+  Future<void> _editTransaksi(Transaksi updated) async {
+    await DomainApiService.deleteTransaksi(updated.id);
+    await DomainApiService.createTransaksi(updated);
+    await _refreshTransaksi();
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final pages = <Widget>[
       // home dashboard
       HomePage(
         transaksi: _transaksi,
@@ -70,48 +93,55 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       // profil
       ProfilePage(user: widget.user),
-      // laporan
-      FinancialReportPage(transaksi: _transaksi),
     ];
+    if (widget.user.role == UserRole.owner) {
+      pages.add(FinancialReportPage(transaksi: _transaksi));
+    }
+
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home, color: Colors.green),
+        label: "Home",
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.list_alt_outlined),
+        selectedIcon: Icon(Icons.list_alt, color: Colors.green),
+        label: "Riwayat",
+      ),
+      NavigationDestination(
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.green,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+        label: "Tambah",
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person, color: Colors.green),
+        label: "Profil",
+      ),
+    ];
+    if (widget.user.role == UserRole.owner) {
+      destinations.add(
+        const NavigationDestination(
+          icon: Icon(Icons.bar_chart_outlined),
+          selectedIcon: Icon(Icons.bar_chart, color: Colors.green),
+          label: "Laporan",
+        ),
+      );
+    }
 
     return Scaffold(
       body: pages[currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (i) => setState(() => currentIndex = i),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Colors.green),
-            label: "Home",
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt, color: Colors.green),
-            label: "Riwayat",
-          ),
-          NavigationDestination(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.green,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
-            label: "Tambah",
-          ),
-              const NavigationDestination(
-               icon: Icon(Icons.person_outline),
-  selectedIcon: Icon(Icons.person, color: Colors.green),
-  label: "Profil",
-),
-          const NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart, color: Colors.green),
-            label: "Laporan",
-          ),
-        ],
+        destinations: destinations,
       ),
     );
   }

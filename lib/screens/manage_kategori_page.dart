@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/kategori.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/domain_api_service.dart';
 
 class ManageKategoriPage extends StatefulWidget {
   const ManageKategoriPage({super.key});
@@ -15,7 +17,7 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
   KategoriType tipe = KategoriType.pengeluaran;
   Kategori? _editing;
 
-  final repo = KategoriRepository.instance;
+  List<Kategori> _kategoris = [];
 
   @override
   void initState() {
@@ -37,9 +39,16 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
         ).then((_) => Navigator.of(context).pop());
       });
     }
+    _loadKategoris();
   }
 
-  void _save() {
+  Future<void> _loadKategoris() async {
+    final data = await DomainApiService.fetchKategoris();
+    if (!mounted) return;
+    setState(() => _kategoris = data);
+  }
+
+  Future<void> _save() async {
     if (namaC.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Nama kategori wajib diisi')),
@@ -48,12 +57,18 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
     }
     final nama = namaC.text.trim();
     if (_editing == null) {
-      repo.add(nama, tipe);
+      await ApiService.post('/kategoris', token: AuthService.token, body: {
+        'nama': nama,
+        'tipe': tipe == KategoriType.pemasukan ? 'pemasukan' : 'pengeluaran',
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kategori berhasil ditambahkan')),
       );
     } else {
-      repo.update(_editing!.id, nama);
+      await ApiService.put('/kategoris/${_editing!.id}', token: AuthService.token, body: {
+        'nama': nama,
+        'tipe': tipe == KategoriType.pemasukan ? 'pemasukan' : 'pengeluaran',
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kategori berhasil diperbarui')),
       );
@@ -62,6 +77,7 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
     setState(() {
       namaC.clear();
     });
+    await _loadKategoris();
   }
 
   @override
@@ -74,7 +90,7 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
       );
     }
 
-    final cats = repo.all;
+    final cats = _kategoris;
     return Scaffold(
       appBar: AppBar(title: const Text('Kelola Kategori')),
       body: Padding(
@@ -186,12 +202,12 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
                                             ],
                                           ));
                                   if (confirmed == true) {
-                                    repo.delete(k.id);
+                                    await ApiService.delete('/kategoris/${k.id}', token: AuthService.token);
                                     if (_editing?.id == k.id) {
                                       _editing = null;
                                       namaC.clear();
                                     }
-                                    setState(() {});
+                                    await _loadKategoris();
                                   }
                                 },
                               ),

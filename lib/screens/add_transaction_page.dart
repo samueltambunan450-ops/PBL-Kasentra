@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/transaksi.dart';
+import '../models/cabang.dart';
 import '../models/kategori.dart';
 import '../services/auth_service.dart';
+import '../services/domain_api_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final void Function(Transaksi) onSaved;
@@ -24,7 +26,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   final TextEditingController nominalC = TextEditingController();
   final TextEditingController keteranganC = TextEditingController();
   String? kategori; // selected category for transaksi
-  final kategoriRepo = KategoriRepository.instance;
+  String? _selectedCabangId;
+  List<Cabang> _cabangs = [];
+  List<Kategori> _kategoris = [];
   DateTime? tanggal = DateTime.now();
 
   @override
@@ -38,7 +42,35 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       keteranganC.text = t.keterangan;
       kategori = t.kategori;
       tanggal = t.tanggal;
+      _selectedCabangId = t.cabangId;
+    } else {
+      _selectedCabangId = AuthService.currentUser?.cabangId;
+      if (AuthService.isOwner() && _selectedCabangId == null) {
+        final cabangs = _cabangs;
+        _selectedCabangId = cabangs.isNotEmpty ? cabangs.first.id : null;
+      }
     }
+    _loadReferenceData();
+  }
+
+  Future<void> _loadReferenceData() async {
+    final fetchedCabangs = await DomainApiService.fetchCabangs();
+    final fetchedKategoris = await DomainApiService.fetchKategoris();
+    if (!mounted) return;
+    setState(() {
+      _cabangs = fetchedCabangs;
+      _kategoris = fetchedKategoris;
+      if (_selectedCabangId == null && _cabangs.isNotEmpty) {
+        _selectedCabangId = _cabangs.first.id;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    nominalC.dispose();
+    keteranganC.dispose();
+    super.dispose();
   }
 
   Future<void> _pilihTanggal() async {
@@ -68,6 +100,13 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     }
 
     final nominal = int.tryParse(nominalC.text.replaceAll('.', '')) ?? 0;
+    if (_selectedCabangId == null || _selectedCabangId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pilih cabang transaksi terlebih dahulu")),
+      );
+      return;
+    }
+
     final transaksi = Transaksi(
       id: widget.transaksi?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
@@ -76,7 +115,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       keterangan: keteranganC.text,
       kategori: kategori,
       jenis: jenis,
-      cabangId: AuthService.currentUser?.cabangId ?? '1',
+      cabangId: _selectedCabangId!,
       userId: AuthService.currentUser?.id ?? '2',
     );
 
@@ -94,6 +133,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       keteranganC.clear();
       kategori = null;
       tanggal = null;
+      _selectedCabangId = AuthService.currentUser?.cabangId;
     });
   }
 
@@ -324,6 +364,33 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      const Text(
+                        "Cabang",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w500, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: _selectedCabangId,
+                        items: _cabangs
+                            .map((c) => DropdownMenuItem<String>(
+                                  value: c.id,
+                                  child: Text(c.nama),
+                                ))
+                            .toList(),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(16)),
+                          ),
+                        ),
+                        onChanged: AuthService.isOwner()
+                            ? (v) => setState(() {
+                                  _selectedCabangId = v;
+                                })
+                            : null,
+                        hint: const Text('Pilih cabang'),
+                      ),
+                      const SizedBox(height: 16),
                       // Always show category dropdown; options depend on jenis and the current user's cabang
                       const Text(
                         "Kategori",
@@ -333,8 +400,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         value: kategori,
-                        items: kategoriRepo
-                            .getKategoriByCabang(AuthService.currentUser?.cabangId)
+                        items: _kategoris
+                            .where((k) =>
+                                k.cabangId == null || k.cabangId == _selectedCabangId)
                             .where((k) => k.tipe == (jenis == TransaksiJenis.pemasukan ? KategoriType.pemasukan : KategoriType.pengeluaran))
                             .map((k) => DropdownMenuItem(
                                   value: k.nama,
@@ -414,6 +482,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               keteranganC.clear();
                               kategori = null;
                               tanggal = null;
+                              _selectedCabangId = AuthService.currentUser?.cabangId;
                             });
                           },
                           child: const Text(

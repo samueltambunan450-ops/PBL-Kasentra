@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../models/cabang.dart';
+import '../models/periode_filter.dart';
 import '../models/transaksi.dart';
 import '../models/user.dart';
-import '../models/cabang.dart';
-
-enum PeriodeFilter { hariIni, mingguIni, bulanIni }
+import '../services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
   final List<Transaksi> transaksi;
   final UserRole role;
-  final void Function(String id) onDelete;
+  final Future<void> Function(String id) onDelete;
 
   const HomePage({
     super.key,
@@ -25,6 +25,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
   String? _selectedCabangId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.role == UserRole.karyawan && AuthService.currentUser?.cabangId != null) {
+      _selectedCabangId = AuthService.currentUser!.cabangId;
+    }
+  }
 
   List<Transaksi> get _filtered {
     final now = DateTime.now();
@@ -100,10 +108,12 @@ class _HomePageState extends State<HomePage> {
     dates.sort((a, b) {
       final aParts = a.split('/');
       final bParts = b.split('/');
+      final aMonth = int.parse(aParts[1]);
+      final bMonth = int.parse(bParts[1]);
+      if (aMonth != bMonth) return aMonth.compareTo(bMonth);
       final aDay = int.parse(aParts[0]);
       final bDay = int.parse(bParts[0]);
-      if (aDay != bDay) return aDay.compareTo(bDay);
-      return int.parse(aParts[1]).compareTo(int.parse(bParts[1]));
+      return aDay.compareTo(bDay);
     });
     return dates;
   }
@@ -196,58 +206,103 @@ class _HomePageState extends State<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Filter cabang dan periode
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              decoration: const InputDecoration(
-                                labelText: "Cabang",
-                                border: OutlineInputBorder(),
-                              ),
-                              value: _selectedCabangId,
-                              items: [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text("Semua Cabang"),
+                      if (widget.role == UserRole.owner) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String?>(
+                                decoration: const InputDecoration(
+                                  labelText: "Cabang",
+                                  border: OutlineInputBorder(),
                                 ),
-                                ...CabangRepository.instance.cabangs.map((c) =>
-                                  DropdownMenuItem(
-                                    value: c.id,
-                                    child: Text(c.nama),
+                                value: _selectedCabangId,
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text("Semua Cabang"),
                                   ),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() => _selectedCabangId = value);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<PeriodeFilter>(
-                              decoration: const InputDecoration(
-                                labelText: "Periode",
-                                border: OutlineInputBorder(),
+                                  ...CabangRepository.instance.cabangs.map((c) =>
+                                    DropdownMenuItem<String?>(
+                                      value: c.id,
+                                      child: Text(c.nama),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() => _selectedCabangId = value);
+                                },
                               ),
-                              value: filter,
-                              items: PeriodeFilter.values.map((f) {
-                                final label = f == PeriodeFilter.hariIni
-                                    ? "Hari ini"
-                                    : f == PeriodeFilter.mingguIni
-                                        ? "Minggu ini"
-                                        : "Bulan ini";
-                                return DropdownMenuItem(
-                                  value: f,
-                                  child: Text(label),
-                                );
-                              }).toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => filter = v);
-                              },
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<PeriodeFilter>(
+                                decoration: const InputDecoration(
+                                  labelText: "Periode",
+                                  border: OutlineInputBorder(),
+                                ),
+                                value: filter,
+                                items: PeriodeFilter.values.map((f) {
+                                  final label = f == PeriodeFilter.hariIni
+                                      ? "Hari ini"
+                                      : f == PeriodeFilter.mingguIni
+                                          ? "Minggu ini"
+                                          : "Bulan ini";
+                                  return DropdownMenuItem(
+                                    value: f,
+                                    child: Text(label),
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  if (v != null) setState(() => filter = v);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        // Untuk karyawan, tampilkan cabang mereka dan filter periode
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  "Cabang: ${CabangRepository.instance.cabangs.firstWhere((c) => c.id == _selectedCabangId, orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0)).nama}",
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<PeriodeFilter>(
+                                decoration: const InputDecoration(
+                                  labelText: "Periode",
+                                  border: OutlineInputBorder(),
+                                ),
+                                value: filter,
+                                items: PeriodeFilter.values.map((f) {
+                                  final label = f == PeriodeFilter.hariIni
+                                      ? "Hari ini"
+                                      : f == PeriodeFilter.mingguIni
+                                          ? "Minggu ini"
+                                          : "Bulan ini";
+                                  return DropdownMenuItem(
+                                    value: f,
+                                    child: Text(label),
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  if (v != null) setState(() => filter = v);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       // Kartu saldo + ringkasan
                       Container(
@@ -411,7 +466,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        height: 220,
+                        height: 250,
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -837,7 +892,11 @@ class _DualLineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DualLineChartPainter oldDelegate) {
+    return oldDelegate.dates != dates ||
+        oldDelegate.pemasukan != pemasukan ||
+        oldDelegate.pengeluaran != pengeluaran;
+  }
 }
 
 

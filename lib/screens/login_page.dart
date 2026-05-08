@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/user.dart';
 import '../screens/dashboard_page.dart';
 import '../services/auth_service.dart';
 
@@ -12,88 +11,125 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final emailC = TextEditingController();
-  final passwordC = TextEditingController();
+  bool _isLoading = false;
 
-  void _login() {
-    final email = emailC.text.trim();
-    final pass = passwordC.text.trim();
+  @override
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
 
-    final repo = UserRepository.instance;
-    final matched = repo.users.where(
-      (u) => u.email == email && u.password == pass,
-    );
-
-    if (matched.isNotEmpty) {
-      final user = matched.first;
-      AuthService.login(user);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardPage(
-            user: user,
-          ),
-        ),
-      );
-    } else {
+    bool success = false;
+    try {
+      success = await AuthService.signInWithGoogle();
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Email atau password tidak sesuai"),
+        SnackBar(
+          content: Text('Login Google gagal: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success && AuthService.currentUser != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DashboardPage(user: AuthService.currentUser!),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Login Google dibatalkan atau gagal."),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.account_balance_wallet,
-                size: 80,
-                color: Colors.green,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "KASENTRA",
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: emailC,
-                decoration: const InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Icon(
+                          Icons.account_balance_wallet,
+                          size: 64,
+                          color: Colors.green,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "KASENTRA",
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Masuk untuk melanjutkan ke dashboard kas.",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.black54,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withAlpha(18),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            "Gunakan akun Google yang valid.\nRole owner/karyawan ditentukan oleh backend Laravel.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.black87, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 46,
+                          child: FilledButton.icon(
+                            onPressed: _isLoading ? null : _loginWithGoogle,
+                            icon: _isLoading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                    ),
+                                  )
+                                : const Icon(Icons.login),
+                            label: Text(_isLoading ? "Memproses..." : "Login dengan Google"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordC,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _login,
-                  child: const Text("Login"),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

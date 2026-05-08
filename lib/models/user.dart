@@ -4,7 +4,7 @@ class AppUser {
   final String id;
   final String nama;
   final String email;
-  final String password;
+  final String googleId;
   final UserRole role;
   final String? cabangId; // ID cabang tempat karyawan bekerja (null untuk owner)
 
@@ -12,7 +12,7 @@ class AppUser {
     required this.id,
     required this.nama,
     required this.email,
-    required this.password,
+    required this.googleId,
     required this.role,
     this.cabangId,
   });
@@ -23,7 +23,7 @@ class AppUser {
       id: map['id'],
       nama: map['nama'],
       email: map['email'],
-      password: map['password'],
+      googleId: map['googleId'],
       role: UserRole.values[map['role']],
       cabangId: map['cabangId'],
     );
@@ -35,7 +35,7 @@ class AppUser {
       'id': id,
       'nama': nama,
       'email': email,
-      'password': password,
+      'googleId': googleId,
       'role': role.index,
       'cabangId': cabangId,
     };
@@ -46,7 +46,7 @@ class AppUser {
     String? id,
     String? nama,
     String? email,
-    String? password,
+    String? googleId,
     UserRole? role,
     String? cabangId,
   }) {
@@ -54,10 +54,16 @@ class AppUser {
       id: id ?? this.id,
       nama: nama ?? this.nama,
       email: email ?? this.email,
-      password: password ?? this.password,
+      googleId: googleId ?? this.googleId,
       role: role ?? this.role,
       cabangId: cabangId ?? this.cabangId,
     );
+  }
+
+  String get username {
+    final beforeAt = email.split('@').first.trim();
+    if (beforeAt.isNotEmpty) return beforeAt.toLowerCase();
+    return nama.trim().toLowerCase().replaceAll(' ', '');
   }
 }
 
@@ -72,16 +78,16 @@ class UserRepository {
     AppUser(
       id: '1',
       nama: 'Owner Utama',
-      email: 'owner@.com',
-      password: 'owner123',
+      email: 'owner@kasentra.com',
+      googleId: 'owner123',
       role: UserRole.owner,
       cabangId: null, // Owner tidak terikat cabang
     ),
     AppUser(
       id: '2',
       nama: 'Karyawan Demo',
-      email: 'staff.com',
-      password: 'staff123',
+      email: 'staff@kasentra.com',
+      googleId: 'staff123',
       role: UserRole.karyawan,
       cabangId: '1', // Contoh cabang ID
     ),
@@ -92,18 +98,19 @@ class UserRepository {
   List<AppUser> get karyawans =>
       _users.where((u) => u.role == UserRole.karyawan).toList();
 
-  void addKaryawan({
+  void addUser({
     required String nama,
     required String email,
-    required String password,
-    required String cabangId,
+    required String googleId,
+    required UserRole role,
+    String? cabangId,
   }) {
     final newUser = AppUser(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       nama: nama,
       email: email,
-      password: password,
-      role: UserRole.karyawan,
+      googleId: googleId,
+      role: role,
       cabangId: cabangId,
     );
     _users.add(newUser);
@@ -113,7 +120,7 @@ class UserRepository {
   void updateKaryawan(String id, {
     required String nama,
     required String email,
-    required String password,
+    required String googleId,
     required String cabangId,
   }) {
     final index = _users.indexWhere((u) => u.id == id);
@@ -123,7 +130,7 @@ class UserRepository {
       id: id,
       nama: nama,
       email: email,
-      password: password,
+      googleId: googleId,
       role: UserRole.karyawan,
       cabangId: cabangId,
     );

@@ -2,15 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
-import 'add_transaction_page.dart';
+import '../widgets/common_page_scaffold.dart';
 
 enum PeriodeFilter { hariIni, mingguIni, bulanIni }
+
+extension PeriodeFilterLabel on PeriodeFilter {
+  String get label {
+    switch (this) {
+      case PeriodeFilter.hariIni:
+        return 'Hari ini';
+      case PeriodeFilter.mingguIni:
+        return 'Minggu ini';
+      case PeriodeFilter.bulanIni:
+        return 'Bulan ini';
+    }
+  }
+}
 
 class HistoryPage extends StatefulWidget {
   final List<Transaksi> transaksi;
   final UserRole role;
-  final void Function(String id) onDelete;
-  final void Function(Transaksi) onEdit;
+  final Future<void> Function(String id) onDelete;
+  final Future<void> Function(Transaksi) onEdit;
 
   const HistoryPage({
     super.key,
@@ -64,47 +77,26 @@ class _HistoryPageState extends State<HistoryPage> {
     return nama[bulan];
   }
 
-  void _editTransaksi(Transaksi t) async {
-    final result = await Navigator.push<Transaksi>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddTransactionPage(
-          onSaved: (updated) => Navigator.pop(context, updated),
-          transaksi: t,
-        ),
-      ),
-    );
-
-    if (result != null) {
-      widget.onEdit(result);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Riwayat Transaksi"),
-      ),
+    return CommonPageScaffold(
+      title: 'Riwayat Transaksi',
+      subtitle: 'Semua transaksi terbaru',
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Text("Filter: "),
+                const Text('Filter: ', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
                 DropdownButton<PeriodeFilter>(
                   value: filter,
                   items: PeriodeFilter.values.map((f) {
-                    final label = f == PeriodeFilter.hariIni
-                        ? "Hari ini"
-                        : f == PeriodeFilter.mingguIni
-                            ? "Minggu ini"
-                            : "Bulan ini";
                     return DropdownMenuItem(
                       value: f,
-                      child: Text(label),
+                      child: Text(f.label),
                     );
                   }).toList(),
                   onChanged: (v) {
@@ -113,20 +105,19 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Expanded(
               child: _filtered.isEmpty
                   ? Center(
                       child: Text(
-                        "Belum ada transaksi",
-                        style: TextStyle(color: Colors.grey[600]),
+                        'Belum ada transaksi',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
                       ),
                     )
                   : ListView.builder(
                       itemCount: _filtered.length,
                       itemBuilder: (context, index) {
                         final t = _filtered[index];
-                        // compute cumulative saldo if needed
                         int saldoKumulatif = 0;
                         for (int i = 0; i <= index; i++) {
                           final trans = _filtered[i];
@@ -140,15 +131,18 @@ class _HistoryPageState extends State<HistoryPage> {
                         final warnaSaldo = isUntung ? Colors.green : Colors.red;
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -156,25 +150,23 @@ class _HistoryPageState extends State<HistoryPage> {
                               Row(
                                 children: [
                                   Container(
-                                    width: 40,
-                                    height: 40,
+                                    width: 44,
+                                    height: 44,
                                     decoration: BoxDecoration(
-                                      color: t.warna.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: t.warna.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: Icon(
-                                      t.jenis ==
-                                              TransaksiJenis.pemasukan
+                                      t.jenis == TransaksiJenis.pemasukan
                                           ? Icons.arrow_downward
                                           : Icons.arrow_upward,
                                       color: t.warna,
-                                      size: 20,
+                                      size: 22,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 14),
                                   Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         t.kategori != null && t.kategori!.isNotEmpty
@@ -184,9 +176,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 6),
                                       Text(
-                                        "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
+                                        '${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey[600],
@@ -200,56 +192,31 @@ class _HistoryPageState extends State<HistoryPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
-                                    "Rp ${t.nominal}",
+                                    'Rp ${t.nominal}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: t.warna,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isUntung
-                                            ? Icons.trending_up
-                                            : Icons.trending_down,
+                                        isUntung ? Icons.trending_up : Icons.trending_down,
                                         size: 14,
                                         color: warnaSaldo,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        isUntung
-                                            ? "Untung Rp ${saldoKumulatif}"
-                                            : "Rugi Rp ${saldoKumulatif.abs()}",
+                                        isUntung ? 'Untung' : 'Rugi',
                                         style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
                                           color: warnaSaldo,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  if (widget.role == UserRole.owner)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () => _editTransaksi(t),
-                                            child: const Icon(Icons.edit,
-                                                size: 16, color: Colors.blue),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          GestureDetector(
-                                            onTap: () => widget.onDelete(t.id),
-                                            child: const Icon(Icons.delete,
-                                                size: 16, color: Colors.red),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                 ],
                               ),
                             ],

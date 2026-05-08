@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/cabang.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../services/domain_api_service.dart';
 
 class ManageCabangPage extends StatefulWidget {
   const ManageCabangPage({super.key});
@@ -14,10 +17,39 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
   final TextEditingController alamatC = TextEditingController();
   final TextEditingController modalC = TextEditingController();
 
-  final repo = CabangRepository.instance;
+  List<Cabang> _cabangs = [];
   Cabang? _editing;
 
-  void _saveCabang() {
+  @override
+  void initState() {
+    super.initState();
+    if (!AuthService.isOwner()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Akses Ditolak'),
+            content: const Text('Anda tidak bisa mengakses halaman ini.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        ).then((_) => Navigator.of(context).pop());
+      });
+    }
+    _loadCabangs();
+  }
+
+  Future<void> _loadCabangs() async {
+    final data = await DomainApiService.fetchCabangs();
+    if (!mounted) return;
+    setState(() => _cabangs = data);
+  }
+
+  Future<void> _saveCabang() async {
     if (namaC.text.isEmpty || alamatC.text.isEmpty || modalC.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -30,10 +62,14 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
     final modal = double.tryParse(modalC.text.replaceAll(',', '.')) ?? 0;
 
     if (_editing == null) {
-      repo.addCabang(
-        nama: namaC.text.trim(),
-        alamat: alamatC.text.trim(),
-        modalAwal: modal,
+      await ApiService.post(
+        '/cabangs',
+        token: AuthService.token,
+        body: {
+          'nama': namaC.text.trim(),
+          'alamat': alamatC.text.trim(),
+          'modal_awal': modal,
+        },
       );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -41,11 +77,14 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
         ),
       );
     } else {
-      repo.updateCabang(
-        _editing!.id,
-        namaC.text.trim(),
-        alamatC.text.trim(),
-        modal,
+      await ApiService.put(
+        '/cabangs/${_editing!.id}',
+        token: AuthService.token,
+        body: {
+          'nama': namaC.text.trim(),
+          'alamat': alamatC.text.trim(),
+          'modal_awal': modal,
+        },
       );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -60,11 +99,20 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
       alamatC.clear();
       modalC.clear();
     });
+    await _loadCabangs();
   }
 
   @override
   Widget build(BuildContext context) {
-    final cabangs = repo.cabangs;
+    if (!AuthService.isOwner()) {
+      return const Scaffold(
+        body: Center(
+          child: Text('Anda tidak bisa mengakses halaman ini.'),
+        ),
+      );
+    }
+
+    final cabangs = _cabangs;
 
     return Scaffold(
       appBar: AppBar(
@@ -187,14 +235,14 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
                                   );
 
                                   if (confirmed == true) {
-                                    repo.deleteCabang(c.id);
+                                    await ApiService.delete('/cabangs/${c.id}', token: AuthService.token);
                                     if (_editing?.id == c.id) {
                                       _editing = null;
                                       namaC.clear();
                                       alamatC.clear();
                                       modalC.clear();
                                     }
-                                    setState(() {});
+                                    await _loadCabangs();
                                   }
                                 },
                               ),
