@@ -27,55 +27,19 @@ class AuthService {
   }
 
   static Future<bool> signInWithGoogle() async {
-    final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return false;
-
-    final googleAuth = await googleUser.authentication;
-    // Di web, Firebase sering butuh konfigurasi tambahan (firebase_options.dart / web config).
-    // Agar tidak crash, untuk web kita gunakan idToken dari Google Sign-In langsung.
-    if (kIsWeb) {
-      final idToken = googleAuth.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        throw Exception('idToken Google tidak tersedia. Pastikan konfigurasi Google Sign-In di web.');
-      }
-
-      final payload =
-          await ApiService.post('/auth/google', body: {'id_token': idToken})
-              as Map<String, dynamic>;
-      final token = payload['token'] as String?;
-      final user = payload['user'] as Map<String, dynamic>?;
-      if (token == null || user == null) return false;
-
-      _token = token;
-      _currentUser = _mapUser(user);
-      final pref = await SharedPreferences.getInstance();
-      await pref.setString(_tokenKey, token);
-      return true;
-    }
-
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
+    // Bypass Google/Firebase login for development testing of CRUD.
+    // Ini hanya sementara — akan dikembalikan ke implementasi asli nanti.
+    final demoUser = AppUser(
+      id: '1',
+      nama: 'Owner Demo',
+      email: 'owner@kasentra.test',
+      googleId: 'bypass-owner',
+      role: UserRole.owner,
+      cabangId: null,
     );
-    await FirebaseAuth.instance.signInWithCredential(credential);
 
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-    if (idToken == null) {
-      throw Exception('Gagal mendapatkan token Firebase');
-    }
-
-    final payload = await ApiService.post(
-      '/auth/google',
-      body: {'id_token': idToken},
-    ) as Map<String, dynamic>;
-    final token = payload['token'] as String?;
-    final user = payload['user'] as Map<String, dynamic>?;
-    if (token == null || user == null) return false;
-
-    _token = token;
-    _currentUser = _mapUser(user);
-    final pref = await SharedPreferences.getInstance();
-    await pref.setString(_tokenKey, token);
+    _currentUser = demoUser;
+    _token = null;
     return true;
   }
 

@@ -4,15 +4,13 @@ import 'package:intl/intl.dart';
 
 import '../models/cabang.dart';
 import '../models/transaksi.dart';
+import '../services/domain_api_service.dart';
 import '../widgets/common_page_scaffold.dart';
 
 class FinancialReportPage extends StatefulWidget {
   final List<Transaksi> transaksi;
 
-  const FinancialReportPage({
-    super.key,
-    required this.transaksi,
-  });
+  const FinancialReportPage({super.key, required this.transaksi});
 
   @override
   State<FinancialReportPage> createState() => _FinancialReportPageState();
@@ -23,32 +21,60 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
   String _selectedPeriod = 'Bulanan';
   DateTimeRange? _selectedDateRange;
   DateTime _currentPeriod = DateTime.now();
+  List<Cabang> _cabangs = [];
+  bool _loadingCabangs = true;
 
-  List<Cabang> get _cabangs => CabangRepository.instance.cabangs;
+  @override
+  void initState() {
+    super.initState();
+    _loadCabangs();
+  }
+
+  Future<void> _loadCabangs() async {
+    try {
+      final list = await DomainApiService.fetchCabangs();
+      if (!mounted) return;
+      setState(() {
+        _cabangs = list;
+        _loadingCabangs = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingCabangs = false);
+    }
+  }
 
   List<Transaksi> get _filteredTransaksi {
     return widget.transaksi.where((t) {
-      final cabangMatch = _selectedCabangId.isEmpty || t.cabangId == _selectedCabangId;
+      final cabangMatch =
+          _selectedCabangId.isEmpty || t.cabangId == _selectedCabangId;
 
       final bool dateMatch;
       if (_selectedDateRange != null) {
-        dateMatch = !t.tanggal.isBefore(_selectedDateRange!.start) &&
+        dateMatch =
+            !t.tanggal.isBefore(_selectedDateRange!.start) &&
             !t.tanggal.isAfter(_selectedDateRange!.end);
       } else {
         switch (_selectedPeriod) {
           case 'Harian':
-            dateMatch = t.tanggal.year == _currentPeriod.year &&
+            dateMatch =
+                t.tanggal.year == _currentPeriod.year &&
                 t.tanggal.month == _currentPeriod.month &&
                 t.tanggal.day == _currentPeriod.day;
             break;
           case 'Mingguan':
-            final startOfWeek = _currentPeriod.subtract(Duration(days: _currentPeriod.weekday - 1));
+            final startOfWeek = _currentPeriod.subtract(
+              Duration(days: _currentPeriod.weekday - 1),
+            );
             final endOfWeek = startOfWeek.add(const Duration(days: 6));
-            dateMatch = !t.tanggal.isBefore(startOfWeek) && !t.tanggal.isAfter(endOfWeek);
+            dateMatch =
+                !t.tanggal.isBefore(startOfWeek) &&
+                !t.tanggal.isAfter(endOfWeek);
             break;
           case 'Bulanan':
           default:
-            dateMatch = t.tanggal.year == _currentPeriod.year &&
+            dateMatch =
+                t.tanggal.year == _currentPeriod.year &&
                 t.tanggal.month == _currentPeriod.month;
         }
       }
@@ -58,10 +84,14 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
   }
 
   double get _modalAwal {
+    if (_cabangs.isEmpty) return 0;
     if (_selectedCabangId.isEmpty) {
       return _cabangs.fold(0.0, (sum, cab) => sum + cab.modalAwal);
     }
-    final cabang = _cabangs.firstWhere((c) => c.id == _selectedCabangId, orElse: () => _cabangs.first);
+    final cabang = _cabangs.firstWhere(
+      (c) => c.id == _selectedCabangId,
+      orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
+    );
     return cabang.modalAwal;
   }
 
@@ -77,26 +107,40 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
 
   List<FlSpot> get _chartDataPemasukan {
     final grouped = <DateTime, int>{};
-    for (var t in _filteredTransaksi.where((t) => t.jenis == TransaksiJenis.pemasukan)) {
+    for (var t in _filteredTransaksi.where(
+      (t) => t.jenis == TransaksiJenis.pemasukan,
+    )) {
       final date = DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day);
       grouped[date] = (grouped[date] ?? 0) + t.nominal;
     }
     final dates = grouped.keys.toList()..sort();
-    return List.generate(dates.length, (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()));
+    return List.generate(
+      dates.length,
+      (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()),
+    );
   }
 
   List<FlSpot> get _chartDataPengeluaran {
     final grouped = <DateTime, int>{};
-    for (var t in _filteredTransaksi.where((t) => t.jenis == TransaksiJenis.pengeluaran)) {
+    for (var t in _filteredTransaksi.where(
+      (t) => t.jenis == TransaksiJenis.pengeluaran,
+    )) {
       final date = DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day);
       grouped[date] = (grouped[date] ?? 0) + t.nominal;
     }
     final dates = grouped.keys.toList()..sort();
-    return List.generate(dates.length, (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()));
+    return List.generate(
+      dates.length,
+      (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()),
+    );
   }
 
   String _formatCurrency(double amount) {
-    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
     return formatter.format(amount);
   }
 
@@ -109,7 +153,9 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       case 'Harian':
         return DateFormat('dd MMMM yyyy').format(_currentPeriod);
       case 'Mingguan':
-        final startOfWeek = _currentPeriod.subtract(Duration(days: _currentPeriod.weekday - 1));
+        final startOfWeek = _currentPeriod.subtract(
+          Duration(days: _currentPeriod.weekday - 1),
+        );
         final endOfWeek = startOfWeek.add(const Duration(days: 6));
         return '${DateFormat('dd/MM').format(startOfWeek)} - ${DateFormat('dd/MM/yyyy').format(endOfWeek)}';
       case 'Bulanan':
@@ -159,6 +205,10 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingCabangs) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return CommonPageScaffold(
       title: 'Laporan Keuangan',
       subtitle: 'Laporan transaksi dan ringkasan',
@@ -166,7 +216,9 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
         IconButton(
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Export PDF akan diimplementasikan')),
+              const SnackBar(
+                content: Text('Export PDF akan diimplementasikan'),
+              ),
             );
           },
           icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
@@ -179,13 +231,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
           children: [
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Filter Laporan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Filter Laporan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 16,
@@ -196,20 +256,33 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Pilih Cabang', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Pilih Cabang',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedCabangId,
                                 decoration: InputDecoration(
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
                                 ),
                                 items: [
-                                  const DropdownMenuItem(value: '', child: Text('Semua Cabang')),
-                                  ..._cabangs.map((cab) => DropdownMenuItem(
-                                        value: cab.id,
-                                        child: Text(cab.nama),
-                                      ))
+                                  const DropdownMenuItem(
+                                    value: '',
+                                    child: Text('Semua Cabang'),
+                                  ),
+                                  ..._cabangs.map(
+                                    (cab) => DropdownMenuItem(
+                                      value: cab.id,
+                                      child: Text(cab.nama),
+                                    ),
+                                  ),
                                 ],
                                 onChanged: (value) {
                                   setState(() {
@@ -225,18 +298,30 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Pilih Periode', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Pilih Periode',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedPeriod,
                                 decoration: InputDecoration(
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
                                 ),
-                                items: ['Harian', 'Mingguan', 'Bulanan'].map((period) => DropdownMenuItem(
-                                      value: period,
-                                      child: Text(period),
-                                    )).toList(),
+                                items: ['Harian', 'Mingguan', 'Bulanan']
+                                    .map(
+                                      (period) => DropdownMenuItem(
+                                        value: period,
+                                        child: Text(period),
+                                      ),
+                                    )
+                                    .toList(),
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedPeriod = value ?? 'Bulanan';
@@ -252,16 +337,24 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Pilih Tanggal (Range)', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Pilih Tanggal (Range)',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 8),
                               ElevatedButton.icon(
                                 onPressed: _selectDateRange,
                                 icon: const Icon(Icons.calendar_today),
-                                label: Text(_selectedDateRange != null
-                                    ? '${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.end)}'
-                                    : 'Pilih Range Tanggal'),
+                                label: Text(
+                                  _selectedDateRange != null
+                                      ? '${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.end)}'
+                                      : 'Pilih Range Tanggal',
+                                ),
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 14,
+                                  ),
                                 ),
                               ),
                             ],
@@ -272,11 +365,17 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                             width: 320,
                             child: Card(
                               color: Colors.grey.shade100,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.chevron_left),
@@ -286,7 +385,10 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                                       child: Text(
                                         _getPeriodLabel(),
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ),
                                     IconButton(
@@ -307,22 +409,42 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Ringkasan Keuangan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Ringkasan Keuangan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        _buildSummaryCard('MODAL AWAL', _formatCurrency(_modalAwal)),
-                        _buildSummaryCard('TOTAL PEMASUKAN', _formatCurrency(_totalPemasukan.toDouble())),
-                        _buildSummaryCard('TOTAL PENGELUARAN', _formatCurrency(_totalPengeluaran.toDouble())),
-                        _buildSummaryCard('SALDO AKHIR', _formatCurrency(_saldoAkhir)),
+                        _buildSummaryCard(
+                          'MODAL AWAL',
+                          _formatCurrency(_modalAwal),
+                        ),
+                        _buildSummaryCard(
+                          'TOTAL PEMASUKAN',
+                          _formatCurrency(_totalPemasukan.toDouble()),
+                        ),
+                        _buildSummaryCard(
+                          'TOTAL PENGELUARAN',
+                          _formatCurrency(_totalPengeluaran.toDouble()),
+                        ),
+                        _buildSummaryCard(
+                          'SALDO AKHIR',
+                          _formatCurrency(_saldoAkhir),
+                        ),
                       ],
                     ),
                   ],
@@ -332,13 +454,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Grafik Perkembangan Usaha', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Grafik Perkembangan Usaha',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       height: 220,
@@ -347,10 +477,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                         LineChartData(
                           gridData: FlGridData(show: true),
                           titlesData: FlTitlesData(
-                            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 42)),
-                            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 42,
+                              ),
+                            ),
+                            rightTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
                           ),
                           borderData: FlBorderData(show: true),
                           lineBarsData: [
@@ -388,13 +529,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Detail Transaksi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Detail Transaksi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -410,23 +559,47 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                         rows: _filteredTransaksi.map((t) {
                           final cabang = _cabangs.firstWhere(
                             (c) => c.id == t.cabangId,
-                            orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0.0),
+                            orElse: () => Cabang(
+                              id: '-',
+                              nama: 'Tidak diketahui',
+                              alamat: '-',
+                              modalAwal: 0.0,
+                            ),
                           );
-                          return DataRow(cells: [
-                            DataCell(Text(DateFormat('dd/MM/yyyy').format(t.tanggal))),
-                            DataCell(Text(cabang.nama)),
-                            DataCell(Text(t.kategori ?? '-')),
-                            DataCell(Text(t.jenis == TransaksiJenis.pemasukan ? 'Pemasukan' : 'Pengeluaran')),
-                            DataCell(Text(_formatCurrency(t.nominal.toDouble()))),
-                            DataCell(Text(t.keterangan)),
-                          ]);
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                Text(
+                                  DateFormat('dd/MM/yyyy').format(t.tanggal),
+                                ),
+                              ),
+                              DataCell(Text(cabang.nama)),
+                              DataCell(Text(t.kategori ?? '-')),
+                              DataCell(
+                                Text(
+                                  t.jenis == TransaksiJenis.pemasukan
+                                      ? 'Pemasukan'
+                                      : 'Pengeluaran',
+                                ),
+                              ),
+                              DataCell(
+                                Text(_formatCurrency(t.nominal.toDouble())),
+                              ),
+                              DataCell(Text(t.keterangan)),
+                            ],
+                          );
                         }).toList(),
                       ),
                     ),
                     if (_filteredTransaksi.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: Text('Tidak ada transaksi dalam periode ini', style: TextStyle(color: Colors.grey[700]))),
+                        child: Center(
+                          child: Text(
+                            'Tidak ada transaksi dalam periode ini',
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -435,13 +608,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
             const SizedBox(height: 16),
             Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Keterangan Laporan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Keterangan Laporan',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     const Text(
                       'Laporan ini menampilkan data keuangan berdasarkan cabang yang dipilih.\n'
@@ -473,9 +654,15 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

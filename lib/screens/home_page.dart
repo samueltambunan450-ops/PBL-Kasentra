@@ -5,6 +5,7 @@ import '../models/periode_filter.dart';
 import '../models/transaksi.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/domain_api_service.dart';
 
 class HomePage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -25,12 +26,30 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
   String? _selectedCabangId;
+  List<Cabang> _cabangs = [];
+  bool _loadingCabangs = true;
 
   @override
   void initState() {
     super.initState();
-    if (widget.role == UserRole.karyawan && AuthService.currentUser?.cabangId != null) {
+    if (widget.role == UserRole.karyawan &&
+        AuthService.currentUser?.cabangId != null) {
       _selectedCabangId = AuthService.currentUser!.cabangId;
+    }
+    _loadCabangs();
+  }
+
+  Future<void> _loadCabangs() async {
+    try {
+      final list = await DomainApiService.fetchCabangs();
+      if (!mounted) return;
+      setState(() {
+        _cabangs = list;
+        _loadingCabangs = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingCabangs = false);
     }
   }
 
@@ -49,32 +68,26 @@ class _HomePageState extends State<HomePage> {
         case PeriodeFilter.mingguIni:
           final monday = now.subtract(Duration(days: now.weekday - 1));
           final sunday = monday.add(const Duration(days: 6));
-          return !t.tanggal.isBefore(monday) &&
-              !t.tanggal.isAfter(sunday);
+          return !t.tanggal.isBefore(monday) && !t.tanggal.isAfter(sunday);
         case PeriodeFilter.bulanIni:
-          return t.tanggal.year == now.year &&
-              t.tanggal.month == now.month;
+          return t.tanggal.year == now.year && t.tanggal.month == now.month;
       }
     }).toList();
   }
 
-  int get totalMasuk =>
-      _filtered
-          .where((t) => t.jenis == TransaksiJenis.pemasukan)
-          .fold(0, (sum, t) => sum + t.nominal);
+  int get totalMasuk => _filtered
+      .where((t) => t.jenis == TransaksiJenis.pemasukan)
+      .fold(0, (sum, t) => sum + t.nominal);
 
-  int get totalKeluar =>
-      _filtered
-          .where((t) => t.jenis == TransaksiJenis.pengeluaran)
-          .fold(0, (sum, t) => sum + t.nominal);
+  int get totalKeluar => _filtered
+      .where((t) => t.jenis == TransaksiJenis.pengeluaran)
+      .fold(0, (sum, t) => sum + t.nominal);
 
   double get modalAwal {
     if (_selectedCabangId == null) {
-      // Jika semua cabang, jumlahkan modal awal semua cabang
-      return CabangRepository.instance.cabangs.fold(0.0, (sum, c) => sum + c.modalAwal);
+      return _cabangs.fold(0.0, (sum, c) => sum + c.modalAwal);
     } else {
-      // Cari cabang yang dipilih
-      final cabang = CabangRepository.instance.cabangs.firstWhere(
+      final cabang = _cabangs.firstWhere(
         (c) => c.id == _selectedCabangId,
         orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
       );
@@ -87,18 +100,18 @@ class _HomePageState extends State<HomePage> {
   /// Data untuk grafik: pemasukan dan pengeluaran per hari dalam periode
   Map<String, Map<String, int>> get _chartData {
     final Map<String, Map<String, int>> data = {};
-    
+
     for (final t in _filtered) {
       final key = "${t.tanggal.day}/${t.tanggal.month}";
       data.putIfAbsent(key, () => {'masuk': 0, 'keluar': 0});
-      
+
       if (t.jenis == TransaksiJenis.pemasukan) {
         data[key]!['masuk'] = data[key]!['masuk']! + t.nominal;
       } else {
         data[key]!['keluar'] = data[key]!['keluar']! + t.nominal;
       }
     }
-    
+
     return data;
   }
 
@@ -187,8 +200,10 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.white.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.notifications_none,
-                        color: Colors.white),
+                    child: const Icon(
+                      Icons.notifications_none,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -197,8 +212,9 @@ class _HomePageState extends State<HomePage> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(30)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(30),
+                  ),
                 ),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -221,8 +237,8 @@ class _HomePageState extends State<HomePage> {
                                     value: null,
                                     child: Text("Semua Cabang"),
                                   ),
-                                  ...CabangRepository.instance.cabangs.map((c) =>
-                                    DropdownMenuItem<String?>(
+                                  ..._cabangs.map(
+                                    (c) => DropdownMenuItem<String?>(
                                       value: c.id,
                                       child: Text(c.nama),
                                     ),
@@ -245,8 +261,8 @@ class _HomePageState extends State<HomePage> {
                                   final label = f == PeriodeFilter.hariIni
                                       ? "Hari ini"
                                       : f == PeriodeFilter.mingguIni
-                                          ? "Minggu ini"
-                                          : "Bulan ini";
+                                      ? "Minggu ini"
+                                      : "Bulan ini";
                                   return DropdownMenuItem(
                                     value: f,
                                     child: Text(label),
@@ -265,13 +281,19 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Expanded(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  "Cabang: ${CabangRepository.instance.cabangs.firstWhere((c) => c.id == _selectedCabangId, orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0)).nama}",
+                                  "Cabang: ${_cabangs.firstWhere(
+                                    (c) => c.id == _selectedCabangId,
+                                    orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0),
+                                  ).nama}",
                                   style: const TextStyle(fontSize: 16),
                                 ),
                               ),
@@ -288,8 +310,8 @@ class _HomePageState extends State<HomePage> {
                                   final label = f == PeriodeFilter.hariIni
                                       ? "Hari ini"
                                       : f == PeriodeFilter.mingguIni
-                                          ? "Minggu ini"
-                                          : "Bulan ini";
+                                      ? "Minggu ini"
+                                      : "Bulan ini";
                                   return DropdownMenuItem(
                                     value: f,
                                     child: Text(label),
@@ -315,19 +337,25 @@ class _HomePageState extends State<HomePage> {
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.fromLTRB(
-                                  24, 24, 24, 18),
+                                24,
+                                24,
+                                24,
+                                18,
+                              ),
                               child: Column(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 24),
+                                      vertical: 12,
+                                      horizontal: 24,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius:
-                                          BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           "Modal Awal",
@@ -351,14 +379,16 @@ class _HomePageState extends State<HomePage> {
                                   const SizedBox(height: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 24),
+                                      vertical: 12,
+                                      horizontal: 24,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius:
-                                          BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           "Total Pemasukan",
@@ -382,14 +412,16 @@ class _HomePageState extends State<HomePage> {
                                   const SizedBox(height: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 24),
+                                      vertical: 12,
+                                      horizontal: 24,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius:
-                                          BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           "Total Pengeluaran",
@@ -413,11 +445,12 @@ class _HomePageState extends State<HomePage> {
                                   const SizedBox(height: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 16, horizontal: 24),
+                                      vertical: 16,
+                                      horizontal: 24,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius:
-                                          BorderRadius.circular(40),
+                                      borderRadius: BorderRadius.circular(40),
                                     ),
                                     child: Column(
                                       children: [
@@ -446,9 +479,7 @@ class _HomePageState extends State<HomePage> {
                                     saldoSaatIni >= modalAwal
                                         ? "Keuntungan periode ini"
                                         : "Kerugian periode ini",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                    ),
+                                    style: const TextStyle(color: Colors.white),
                                   ),
                                 ],
                               ),
@@ -462,7 +493,9 @@ class _HomePageState extends State<HomePage> {
                       const Text(
                         "GRAFIK KEUANGAN",
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -477,7 +510,7 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.black12,
                               blurRadius: 8,
                               offset: Offset(0, 2),
-                            )
+                            ),
                           ],
                         ),
                         child: _chartDates.isEmpty
@@ -542,7 +575,9 @@ class _HomePageState extends State<HomePage> {
                       const Text(
                         "Riwayat Transaksi",
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       if (_filtered.isEmpty)
@@ -553,7 +588,9 @@ class _HomePageState extends State<HomePage> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                                color: Colors.grey.shade300, width: 1),
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
                           ),
                           child: Center(
                             child: Text(
@@ -568,12 +605,12 @@ class _HomePageState extends State<HomePage> {
                             // Urutkan transaksi berdasarkan tanggal untuk perhitungan saldo
                             final sorted = [..._filtered]
                               ..sort((a, b) => a.tanggal.compareTo(b.tanggal));
-                            
+
                             return Column(
                               children: sorted.asMap().entries.map((entry) {
                                 final index = entry.key;
                                 final t = entry.value;
-                                
+
                                 // Hitung saldo kumulatif sampai transaksi ini
                                 int saldoKumulatif = 0;
                                 for (int i = 0; i <= index; i++) {
@@ -584,117 +621,129 @@ class _HomePageState extends State<HomePage> {
                                     saldoKumulatif -= trans.nominal;
                                   }
                                 }
-                            
-                            final isUntung = saldoKumulatif >= 0;
-                            final warnaSaldo = isUntung ? Colors.green : Colors.red;
-                            
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
+
+                                final isUntung = saldoKumulatif >= 0;
+                                final warnaSaldo = isUntung
+                                    ? Colors.green
+                                    : Colors.red;
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: t.warna.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(
-                                          t.jenis ==
-                                                  TransaksiJenis.pemasukan
-                                              ? Icons.arrow_downward
-                                              : Icons.arrow_upward,
-                                          color: t.warna,
-                                          size: 20,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: t.warna.withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(
+                                              t.jenis ==
+                                                      TransaksiJenis.pemasukan
+                                                  ? Icons.arrow_downward
+                                                  : Icons.arrow_upward,
+                                              color: t.warna,
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                t.kategori != null &&
+                                                        t.kategori!.isNotEmpty
+                                                    ? '${t.kategori} – ${t.keterangan}'
+                                                    : t.keterangan,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 12),
                                       Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            t.kategori != null && t.kategori!.isNotEmpty
-                                                ? '${t.kategori} – ${t.keterangan}'
-                                                : t.keterangan,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
+                                            "Rp ${t.nominal}",
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600],
+                                              fontWeight: FontWeight.bold,
+                                              color: t.warna,
                                             ),
                                           ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                isUntung
+                                                    ? Icons.trending_up
+                                                    : Icons.trending_down,
+                                                size: 14,
+                                                color: warnaSaldo,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                isUntung
+                                                    ? "Untung Rp ${saldoKumulatif}"
+                                                    : "Rugi Rp ${saldoKumulatif.abs()}",
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: warnaSaldo,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          if (widget.role == UserRole.owner)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4,
+                                              ),
+                                              child: GestureDetector(
+                                                onTap: () =>
+                                                    widget.onDelete(t.id),
+                                                child: const Icon(
+                                                  Icons.delete,
+                                                  size: 16,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        "Rp ${t.nominal}",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: t.warna,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            isUntung
-                                                ? Icons.trending_up
-                                                : Icons.trending_down,
-                                            size: 14,
-                                            color: warnaSaldo,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            isUntung
-                                                ? "Untung Rp ${saldoKumulatif}"
-                                                : "Rugi Rp ${saldoKumulatif.abs()}",
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: warnaSaldo,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (widget.role == UserRole.owner)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: GestureDetector(
-                                            onTap: () => widget.onDelete(t.id),
-                                            child: const Icon(Icons.delete,
-                                                size: 16, color: Colors.red),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            );
+                                );
                               }).toList(),
                             );
                           },
@@ -774,13 +823,9 @@ class _DualLineChartPainter extends CustomPainter {
     for (int i = 0; i <= 5; i++) {
       final value = minY + (i * interval);
       final y = yEnd - (i / 5) * chartHeight;
-      
+
       // Grid line
-      canvas.drawLine(
-        Offset(leftPadding, y),
-        Offset(size.width, y),
-        paintGrid,
-      );
+      canvas.drawLine(Offset(leftPadding, y), Offset(size.width, y), paintGrid);
 
       // Label Y
       final tp = TextPainter(
@@ -829,7 +874,8 @@ class _DualLineChartPainter extends CustomPainter {
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 
-      final pathMasuk = Path()..moveTo(pointsMasuk.first.dx, pointsMasuk.first.dy);
+      final pathMasuk = Path()
+        ..moveTo(pointsMasuk.first.dx, pointsMasuk.first.dy);
       for (int i = 1; i < pointsMasuk.length; i++) {
         pathMasuk.lineTo(pointsMasuk[i].dx, pointsMasuk[i].dy);
       }
@@ -856,7 +902,8 @@ class _DualLineChartPainter extends CustomPainter {
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 
-      final pathKeluar = Path()..moveTo(pointsKeluar.first.dx, pointsKeluar.first.dy);
+      final pathKeluar = Path()
+        ..moveTo(pointsKeluar.first.dx, pointsKeluar.first.dy);
       for (int i = 1; i < pointsKeluar.length; i++) {
         pathKeluar.lineTo(pointsKeluar[i].dx, pointsKeluar[i].dy);
       }
@@ -876,14 +923,11 @@ class _DualLineChartPainter extends CustomPainter {
       final x = indexToX(i);
       final dateParts = dates[i].split('/');
       final label = dateParts[0]; // Hanya tampilkan hari
-      
+
       final tp = TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontSize: 9,
-          ),
+          style: TextStyle(color: Colors.grey[700], fontSize: 9),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -898,5 +942,3 @@ class _DualLineChartPainter extends CustomPainter {
         oldDelegate.pengeluaran != pengeluaran;
   }
 }
-
-

@@ -9,20 +9,53 @@ class DomainApiService {
   DomainApiService._();
 
   static Future<List<Cabang>> fetchCabangs() async {
-    final list = await ApiService.get('/cabangs', token: AuthService.token) as List<dynamic>;
-    return list.map((e) {
-      final m = e as Map<String, dynamic>;
-      return Cabang(
-        id: m['id'].toString(),
-        nama: (m['nama'] ?? '').toString(),
-        alamat: (m['alamat'] ?? '').toString(),
-        modalAwal: double.tryParse(m['modal_awal'].toString()) ?? 0,
-      );
-    }).toList();
+    final response = await ApiService.get('/cabangs', token: AuthService.token) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
+    return list.map((e) => Cabang.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<Cabang> createCabang({
+    required String nama,
+    required String alamat,
+    required double modalAwal,
+  }) async {
+    final response = await ApiService.post(
+      '/cabangs',
+      token: AuthService.token,
+      body: {
+        'nama': nama,
+        'alamat': alamat,
+        'modal_awal': modalAwal,
+      },
+    ) as Map<String, dynamic>;
+    return Cabang.fromJson(response['data'] as Map<String, dynamic>);
+  }
+
+  static Future<Cabang> updateCabang(
+    String id, {
+    required String nama,
+    required String alamat,
+    required double modalAwal,
+  }) async {
+    final response = await ApiService.put(
+      '/cabangs/$id',
+      token: AuthService.token,
+      body: {
+        'nama': nama,
+        'alamat': alamat,
+        'modal_awal': modalAwal,
+      },
+    ) as Map<String, dynamic>;
+    return Cabang.fromJson(response['data'] as Map<String, dynamic>);
+  }
+
+  static Future<void> deleteCabang(String id) async {
+    await ApiService.delete('/cabangs/$id', token: AuthService.token);
   }
 
   static Future<List<Kategori>> fetchKategoris() async {
-    final list = await ApiService.get('/kategoris', token: AuthService.token) as List<dynamic>;
+    final response = await ApiService.get('/kategoris', token: AuthService.token) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
     return list.map((e) {
       final m = e as Map<String, dynamic>;
       return Kategori(
@@ -34,8 +67,60 @@ class DomainApiService {
     }).toList();
   }
 
+  static Future<Kategori> createKategori({
+    required String nama,
+    required String tipe,
+    String? cabangId,
+  }) async {
+    final response = await ApiService.post(
+      '/kategoris',
+      token: AuthService.token,
+      body: {
+        'nama': nama,
+        'tipe': tipe,
+        'cabang_id': cabangId == null ? null : int.tryParse(cabangId),
+      },
+    ) as Map<String, dynamic>;
+    final m = response['data'] as Map<String, dynamic>;
+    return Kategori(
+      id: m['id'].toString(),
+      nama: (m['nama'] ?? '').toString(),
+      tipe: m['tipe'] == 'pemasukan' ? KategoriType.pemasukan : KategoriType.pengeluaran,
+      cabangId: m['cabang_id']?.toString(),
+    );
+  }
+
+  static Future<Kategori> updateKategori(
+    String id, {
+    required String nama,
+    required String tipe,
+    String? cabangId,
+  }) async {
+    final response = await ApiService.put(
+      '/kategoris/$id',
+      token: AuthService.token,
+      body: {
+        'nama': nama,
+        'tipe': tipe,
+        'cabang_id': cabangId == null ? null : int.tryParse(cabangId),
+      },
+    ) as Map<String, dynamic>;
+    final m = response['data'] as Map<String, dynamic>;
+    return Kategori(
+      id: m['id'].toString(),
+      nama: (m['nama'] ?? '').toString(),
+      tipe: m['tipe'] == 'pemasukan' ? KategoriType.pemasukan : KategoriType.pengeluaran,
+      cabangId: m['cabang_id']?.toString(),
+    );
+  }
+
+  static Future<void> deleteKategori(String id) async {
+    await ApiService.delete('/kategoris/$id', token: AuthService.token);
+  }
+
   static Future<List<Transaksi>> fetchTransaksis() async {
-    final list = await ApiService.get('/transaksis', token: AuthService.token) as List<dynamic>;
+    final response = await ApiService.get('/transaksis', token: AuthService.token) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
     return list.map((e) {
       final m = e as Map<String, dynamic>;
       return Transaksi(
@@ -71,7 +156,8 @@ class DomainApiService {
   }
 
   static Future<List<AppUser>> fetchKaryawans() async {
-    final list = await ApiService.get('/karyawans', token: AuthService.token) as List<dynamic>;
+    final response = await ApiService.get('/karyawans', token: AuthService.token) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
     return list.map((e) {
       final m = e as Map<String, dynamic>;
       return AppUser(
@@ -79,9 +165,64 @@ class DomainApiService {
         nama: (m['name'] ?? '').toString(),
         email: (m['email'] ?? '').toString(),
         googleId: (m['google_uid'] ?? '').toString(),
-        role: UserRole.karyawan,
+        role: m['role'] == 'owner' ? UserRole.owner : UserRole.karyawan,
         cabangId: m['cabang_id']?.toString(),
       );
     }).toList();
+  }
+
+  static Future<AppUser> createKaryawan({
+    required String nama,
+    required String email,
+    required String cabangId,
+  }) async {
+    final response = await ApiService.post(
+      '/karyawans',
+      token: AuthService.token,
+      body: {
+        'name': nama,
+        'email': email,
+        'cabang_id': int.tryParse(cabangId),
+      },
+    ) as Map<String, dynamic>;
+    final m = response['data'] as Map<String, dynamic>;
+    return AppUser(
+      id: m['id'].toString(),
+      nama: (m['name'] ?? '').toString(),
+      email: (m['email'] ?? '').toString(),
+      googleId: (m['google_uid'] ?? '').toString(),
+      role: m['role'] == 'owner' ? UserRole.owner : UserRole.karyawan,
+      cabangId: m['cabang_id']?.toString(),
+    );
+  }
+
+  static Future<AppUser> updateKaryawan(
+    String id, {
+    required String nama,
+    required String email,
+    required String cabangId,
+  }) async {
+    final response = await ApiService.put(
+      '/karyawans/$id',
+      token: AuthService.token,
+      body: {
+        'name': nama,
+        'email': email,
+        'cabang_id': int.tryParse(cabangId),
+      },
+    ) as Map<String, dynamic>;
+    final m = response['data'] as Map<String, dynamic>;
+    return AppUser(
+      id: m['id'].toString(),
+      nama: (m['name'] ?? '').toString(),
+      email: (m['email'] ?? '').toString(),
+      googleId: (m['google_uid'] ?? '').toString(),
+      role: m['role'] == 'owner' ? UserRole.owner : UserRole.karyawan,
+      cabangId: m['cabang_id']?.toString(),
+    );
+  }
+
+  static Future<void> deleteKaryawan(String id) async {
+    await ApiService.delete('/karyawans/$id', token: AuthService.token);
   }
 }
