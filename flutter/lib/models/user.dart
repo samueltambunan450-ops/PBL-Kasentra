@@ -1,4 +1,4 @@
-enum UserRole { owner, karyawan }
+enum UserRole { owner, karyawan, pending }
 
 class AppUser {
   final String id;
@@ -20,13 +20,20 @@ class AppUser {
   // Factory untuk membuat AppUser dari Map
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
-      id: map['id'],
-      nama: map['nama'],
-      email: map['email'],
-      googleId: map['googleId'],
-      role: UserRole.values[map['role']],
-      cabangId: map['cabangId'],
+      id: map['id'].toString(),
+      nama: (map['name'] ?? map['nama'] ?? '').toString(),
+      email: (map['email'] ?? '').toString(),
+      googleId: (map['google_uid'] ?? map['googleId'] ?? '').toString(),
+      role: _parseRole(map['role']),
+      cabangId: map['cabang_id']?.toString() ?? map['cabangId']?.toString(),
     );
+  }
+
+  static UserRole _parseRole(dynamic value) {
+    final role = value?.toString().toLowerCase();
+    if (role == 'owner') return UserRole.owner;
+    if (role == 'karyawan') return UserRole.karyawan;
+    return UserRole.pending;
   }
 
   // Method untuk mengubah AppUser ke Map
@@ -36,7 +43,7 @@ class AppUser {
       'nama': nama,
       'email': email,
       'googleId': googleId,
-      'role': role.index,
+      'role': role.name,
       'cabangId': cabangId,
     };
   }

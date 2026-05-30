@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/transaksi.dart';
 import '../models/cabang.dart';
 import '../models/kategori.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/domain_api_service.dart';
 
@@ -44,10 +45,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       tanggal = t.tanggal;
       _selectedCabangId = t.cabangId;
     } else {
-      _selectedCabangId = AuthService.currentUser?.cabangId;
-      if (AuthService.isOwner() && _selectedCabangId == null) {
-        final cabangs = _cabangs;
-        _selectedCabangId = cabangs.isNotEmpty ? cabangs.first.id : null;
+      if (!AuthService.isOwner()) {
+        _selectedCabangId = AuthService.currentUser?.cabangId;
       }
     }
     _loadReferenceData();
@@ -60,7 +59,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     setState(() {
       _cabangs = fetchedCabangs;
       _kategoris = fetchedKategoris;
-      if (_selectedCabangId == null && _cabangs.isNotEmpty) {
+      if (AuthService.isOwner() && _selectedCabangId == null && _cabangs.isNotEmpty) {
         _selectedCabangId = _cabangs.first.id;
       }
     });
@@ -86,7 +85,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     }
   }
 
-  void _simpan() {
+  void _simpan() async {
     if (nominalC.text.isEmpty ||
         keteranganC.text.isEmpty ||
         tanggal == null ||
@@ -107,34 +106,79 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       return;
     }
 
-    final transaksi = Transaksi(
-      id: widget.transaksi?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      tanggal: tanggal!,
-      nominal: nominal,
-      keterangan: keteranganC.text,
-      kategori: kategori,
-      jenis: jenis,
-      cabangId: _selectedCabangId!,
-      userId: AuthService.currentUser?.id ?? '2',
-    );
+    try {
+      final transaksi = Transaksi(
+        id: widget.transaksi?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
+        tanggal: tanggal!,
+        nominal: nominal,
+        keterangan: keteranganC.text,
+        kategori: kategori,
+        jenis: jenis,
+        cabangId: _selectedCabangId!,
+        userId: AuthService.currentUser?.id ?? '2',
+      );
 
-    widget.onSaved(transaksi);
+      if (!_isEditing) {
+        // Create new transaction
+        final selectedKategori = _kategoris.firstWhere(
+          (k) => k.nama == kategori,
+          orElse: () => throw Exception('Kategori tidak ditemukan'),
+        );
+        final kategoriId = selectedKategori.id;
 
-    // jika layar dipush (edit), tutup rute
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-      return;
+        await DomainApiService.createTransaksi(transaksi, kategoriId: kategoriId);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Transaksi berhasil ditambahkan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Update existing transaction
+        final selectedKategori = _kategoris.firstWhere(
+          (k) => k.nama == kategori,
+          orElse: () => throw Exception('Kategori tidak ditemukan'),
+        );
+        final kategoriId = selectedKategori.id;
+
+        await ApiService.put(
+          '/transaksis/${transaksi.id}',
+          token: AuthService.token,
+          body: {
+            'cabang_id': int.parse(transaksi.cabangId),
+            'kategori_id': int.parse(kategoriId),
+            'jenis': transaksi.jenis == TransaksiJenis.pemasukan
+                ? 'pemasukan'
+                : 'pengeluaran',
+            'nominal': transaksi.nominal,
+            'tanggal': transaksi.tanggal.toIso8601String().substring(0, 10),
+            'keterangan': transaksi.keterangan,
+          },
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Transaksi berhasil diperbarui"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      if (mounted) {
+        widget.onSaved(transaksi);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal menyimpan transaksi: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    setState(() {
-      jenis = TransaksiJenis.pemasukan;
-      nominalC.clear();
-      keteranganC.clear();
-      kategori = null;
-      tanggal = null;
-      _selectedCabangId = AuthService.currentUser?.cabangId;
-    });
   }
 
   String _formatTanggal(DateTime? t) {
@@ -364,33 +408,34 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        "Cabang",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: _selectedCabangId,
-                        items: _cabangs
-                            .map((c) => DropdownMenuItem<String>(
-                                  value: c.id,
-                                  child: Text(c.nama),
-                                ))
-                            .toList(),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(16)),
-                          ),
+                      if (AuthService.isOwner()) ...[
+                        const Text(
+                          "Cabang",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w500, fontSize: 13),
                         ),
-                        onChanged: AuthService.isOwner()
-                            ? (v) => setState(() {
-                                  _selectedCabangId = v;
-                                })
-                            : null,
-                        hint: const Text('Pilih cabang'),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          value: _selectedCabangId,
+                          items: _cabangs
+                              .map((c) => DropdownMenuItem<String>(
+                                    value: c.id,
+                                    child: Text(c.nama),
+                                  ))
+                              .toList(),
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(16)),
+                            ),
+                          ),
+                          onChanged: (v) => setState(() {
+                            _selectedCabangId = v;
+                            kategori = null;
+                          }),
+                          hint: const Text('Pilih cabang'),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       // Always show category dropdown; options depend on jenis and the current user's cabang
                       const Text(
                         "Kategori",
@@ -401,9 +446,14 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       DropdownButtonFormField<String>(
                         value: kategori,
                         items: _kategoris
-                            .where((k) =>
-                                k.cabangId == null || k.cabangId == _selectedCabangId)
-                            .where((k) => k.tipe == (jenis == TransaksiJenis.pemasukan ? KategoriType.pemasukan : KategoriType.pengeluaran))
+                            .where((k) {
+                              final matchesType = k.tipe == (jenis == TransaksiJenis.pemasukan
+                                  ? KategoriType.pemasukan
+                                  : KategoriType.pengeluaran);
+                              final matchesScope = k.scope == KategoriScope.global ||
+                                  (k.cabangId != null && k.cabangId == _selectedCabangId);
+                              return matchesType && matchesScope;
+                            })
                             .map((k) => DropdownMenuItem(
                                   value: k.nama,
                                   child: Text(k.nama),

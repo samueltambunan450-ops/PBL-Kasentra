@@ -61,45 +61,54 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
 
     final modal = double.tryParse(modalC.text.replaceAll(',', '.')) ?? 0;
 
-    if (_editing == null) {
-      await ApiService.post(
-        '/cabangs',
-        token: AuthService.token,
-        body: {
-          'nama': namaC.text.trim(),
-          'alamat': alamatC.text.trim(),
-          'modal_awal': modal,
-        },
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Cabang berhasil ditambahkan"),
-        ),
-      );
-    } else {
-      await ApiService.put(
-        '/cabangs/${_editing!.id}',
-        token: AuthService.token,
-        body: {
-          'nama': namaC.text.trim(),
-          'alamat': alamatC.text.trim(),
-          'modal_awal': modal,
-        },
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Cabang berhasil diperbarui"),
-        ),
-      );
-      _editing = null;
-    }
+    try {
+      if (_editing == null) {
+        await DomainApiService.createCabang(
+          nama: namaC.text.trim(),
+          alamat: alamatC.text.trim(),
+          modalAwal: modal,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Cabang berhasil ditambahkan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        await DomainApiService.updateCabang(
+          _editing!.id,
+          nama: namaC.text.trim(),
+          alamat: alamatC.text.trim(),
+          modalAwal: modal,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Cabang berhasil diperbarui"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _editing = null;
+      }
 
-    setState(() {
-      namaC.clear();
-      alamatC.clear();
-      modalC.clear();
-    });
-    await _loadCabangs();
+      if (mounted) {
+        setState(() {
+          namaC.clear();
+          alamatC.clear();
+          modalC.clear();
+        });
+      }
+      await _loadCabangs();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal menyimpan cabang: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -235,14 +244,34 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
                                   );
 
                                   if (confirmed == true) {
-                                    await ApiService.delete('/cabangs/${c.id}', token: AuthService.token);
-                                    if (_editing?.id == c.id) {
-                                      _editing = null;
-                                      namaC.clear();
-                                      alamatC.clear();
-                                      modalC.clear();
+                                    try {
+                                      await DomainApiService.deleteCabang(c.id);
+                                      if (_editing?.id == c.id) {
+                                        _editing = null;
+                                        if (mounted) {
+                                          namaC.clear();
+                                          alamatC.clear();
+                                          modalC.clear();
+                                        }
+                                      }
+                                      await _loadCabangs();
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Cabang berhasil dihapus"),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text("Gagal menghapus cabang: $e"),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
                                     }
-                                    await _loadCabangs();
                                   }
                                 },
                               ),

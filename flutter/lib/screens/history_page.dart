@@ -191,12 +191,62 @@ class _HistoryPageState extends State<HistoryPage> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text(
-                                    'Rp ${t.nominal}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: t.warna,
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Rp ${t.nominal}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: t.warna,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
+                                        onPressed: () => widget.onEdit(t),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                      if (widget.role == UserRole.owner)
+                                        IconButton(
+                                          icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                                          onPressed: () async {
+                                            final confirmed = await showDialog<bool>(
+                                              context: context,
+                                              builder: (_) => AlertDialog(
+                                                title: const Text('Hapus transaksi'),
+                                                content: const Text('Yakin ingin menghapus transaksi ini?'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context, false),
+                                                    child: const Text('Batal'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context, true),
+                                                    child: const Text('Hapus'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirmed == true) {
+                                              try {
+                                                await widget.onDelete(t.id);
+                                              } catch (e) {
+                                                if (!mounted) return;
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('Gagal menghapus: $e'),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Row(

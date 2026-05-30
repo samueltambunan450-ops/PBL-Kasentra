@@ -56,6 +56,41 @@ class _ManageKaryawanPageState extends State<ManageKaryawanPage> {
     });
   }
 
+  Future<void> _generateInvitation() async {
+    if (selectedCabangId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih cabang sebelum membuat kode undangan.')),
+      );
+      return;
+    }
+
+    try {
+      final code = await DomainApiService.generateInvitation(cabangId: selectedCabangId!);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Kode Undangan Dihasilkan'),
+          content: Text('Bagikan kode ini ke karyawan: $code'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membuat kode undangan: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _saveKaryawan() async {
     if (namaC.text.isEmpty || emailC.text.isEmpty || selectedCabangId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -64,40 +99,53 @@ class _ManageKaryawanPageState extends State<ManageKaryawanPage> {
       return;
     }
 
-    if (_editing == null) {
-      await ApiService.post(
-        '/karyawans',
-        token: AuthService.token,
-        body: {
-          'name': namaC.text.trim(),
-          'email': emailC.text.trim(),
-          'cabang_id': int.tryParse(selectedCabangId!),
-        },
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Karyawan berhasil ditambahkan")),
-      );
-    } else {
-      await ApiService.put(
-        '/karyawans/${_editing!.id}',
-        token: AuthService.token,
-        body: {
-          'name': namaC.text.trim(),
-          'email': emailC.text.trim(),
-          'cabang_id': int.tryParse(selectedCabangId!),
-        },
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Karyawan berhasil diperbarui")),
-      );
-      _editing = null;
-    }
+    try {
+      if (_editing == null) {
+        await DomainApiService.createKaryawan(
+          nama: namaC.text.trim(),
+          email: emailC.text.trim(),
+          cabangId: selectedCabangId!,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Karyawan berhasil ditambahkan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        await DomainApiService.updateKaryawan(
+          _editing!.id,
+          nama: namaC.text.trim(),
+          email: emailC.text.trim(),
+          cabangId: selectedCabangId!,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Karyawan berhasil diperbarui"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _editing = null;
+      }
 
-    setState(() {
-      namaC.clear();
-      emailC.clear();
-    });
-    await _loadData();
+      if (mounted) {
+        setState(() {
+          namaC.clear();
+          emailC.clear();
+        });
+      }
+      await _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal menyimpan karyawan: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -157,14 +205,24 @@ class _ManageKaryawanPageState extends State<ManageKaryawanPage> {
               },
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saveKaryawan,
-                child: Text(
-                  _editing == null ? "Simpan Karyawan" : "Perbarui Karyawan",
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _saveKaryawan,
+                    child: Text(
+                      _editing == null ? "Simpan Karyawan" : "Perbarui Karyawan",
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _generateInvitation,
+                    child: const Text('Buat Kode Undangan'),
+                  ),
+                ),
+              ],
             ),
             if (_editing != null)
               Center(
@@ -263,17 +321,34 @@ class _ManageKaryawanPageState extends State<ManageKaryawanPage> {
                                           ),
                                         );
                                         if (confirmed == true) {
-                                          await ApiService.delete(
-                                            '/karyawans/${u.id}',
-                                            token: AuthService.token,
-                                          );
-                                          if (_editing?.id == u.id) {
-                                            _editing = null;
-                                            namaC.clear();
-                                            emailC.clear();
-                                            selectedCabangId = null;
+                                          try {
+                                            await DomainApiService.deleteKaryawan(u.id);
+                                            if (_editing?.id == u.id) {
+                                              _editing = null;
+                                              if (mounted) {
+                                                namaC.clear();
+                                                emailC.clear();
+                                                selectedCabangId = null;
+                                              }
+                                            }
+                                            await _loadData();
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text("Karyawan berhasil dihapus"),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text("Gagal menghapus karyawan: $e"),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
                                           }
-                                          await _loadData();
                                         }
                                       },
                                     ),
