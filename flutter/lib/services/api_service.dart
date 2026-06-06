@@ -9,16 +9,13 @@ class ApiService {
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
-    // Untuk web (Chrome/Edge), gunakan localhost host machine.
-    // Untuk Android emulator, gunakan 10.0.2.2.
-    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+    return kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://192.168.1.2:8000/api';
   }
 
   static Future<Map<String, String>> authHeaders(String? token) async {
     return {
       'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
@@ -77,16 +74,15 @@ class ApiService {
       }
     }
 
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     }
 
     final message = (body is Map<String, dynamic> && body['message'] != null)
         ? body['message'].toString()
         : (body is String && body.isNotEmpty)
-            ? body
-            : 'Terjadi kesalahan pada server (${response.statusCode})';
+        ? body
+        : 'Terjadi kesalahan pada server (${response.statusCode})';
 
     throw Exception(message);
   }

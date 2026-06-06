@@ -4,6 +4,8 @@ import '../models/kategori.dart';
 import '../models/cabang.dart';
 import '../services/auth_service.dart';
 import '../services/domain_api_service.dart';
+import '../theme/app_theme.dart';
+import '../utils/responsive.dart';
 
 class ManageKategoriPage extends StatefulWidget {
   const ManageKategoriPage({super.key});
@@ -451,16 +453,12 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
     final filtered = _filteredKategoris;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text(
           'Kategori',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        centerTitle: false,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showFormBottomSheet(),
@@ -468,7 +466,10 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Tambah Kategori', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: RefreshIndicator(
+      body: ResponsiveContent(
+        padding: EdgeInsets.zero,
+        center: false,
+        child: RefreshIndicator(
         onRefresh: _loadData,
         color: Colors.green,
         child: Column(
@@ -500,13 +501,12 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Filter Chips
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _buildFilterChip('semua', 'Semua'),
-                      const SizedBox(width: 8),
                       _buildFilterChip('global', 'Global'),
-                      const SizedBox(width: 8),
                       _buildFilterChip('cabang', 'Cabang'),
                     ],
                   ),
@@ -682,6 +682,7 @@ class _ManageKategoriPageState extends State<ManageKategoriPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

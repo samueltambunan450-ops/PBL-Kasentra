@@ -5,7 +5,11 @@ import 'package:intl/intl.dart';
 import '../models/cabang.dart';
 import '../models/transaksi.dart';
 import '../services/domain_api_service.dart';
+import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
+
+const incomeChartColor = Color(0xFF1D9E75);
+const expenseChartColor = Color(0xFFE24B4A);
 
 class FinancialReportPage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -103,7 +107,19 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       .where((t) => t.jenis == TransaksiJenis.pengeluaran)
       .fold(0, (sum, t) => sum + t.nominal);
 
-  double get _saldoAkhir => _modalAwal + _totalPemasukan - _totalPengeluaran;
+  double get _labaBersih => (_totalPemasukan - _totalPengeluaran).toDouble();
+  double get _saldoKas => _modalAwal + _totalPemasukan - _totalPengeluaran;
+  double get _modalAkhir => _modalAwal + _labaBersih;
+  double get _roi => _modalAwal > 0 ? (_labaBersih / _modalAwal) * 100 : 0;
+
+  List<DateTime> get _allChartDates {
+    final dates = _filteredTransaksi
+        .map((t) => DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day))
+        .toSet()
+        .toList()
+      ..sort();
+    return dates;
+  }
 
   List<FlSpot> get _chartDataPemasukan {
     final grouped = <DateTime, int>{};
@@ -113,11 +129,11 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       final date = DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day);
       grouped[date] = (grouped[date] ?? 0) + t.nominal;
     }
-    final dates = grouped.keys.toList()..sort();
-    return List.generate(
-      dates.length,
-      (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()),
-    );
+    return _allChartDates
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), (grouped[e.value] ?? 0).toDouble()))
+        .toList();
   }
 
   List<FlSpot> get _chartDataPengeluaran {
@@ -128,11 +144,21 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       final date = DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day);
       grouped[date] = (grouped[date] ?? 0) + t.nominal;
     }
-    final dates = grouped.keys.toList()..sort();
-    return List.generate(
-      dates.length,
-      (i) => FlSpot(i.toDouble(), grouped[dates[i]]!.toDouble()),
-    );
+    return _allChartDates
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), (grouped[e.value] ?? 0).toDouble()))
+        .toList();
+  }
+
+  List<FlSpot> _safeSpots(List<FlSpot> spots) {
+    if (spots.isEmpty) {
+      return [FlSpot(0, 0), FlSpot(1, 0)];
+    }
+    if (spots.length == 1) {
+      return [FlSpot(0, 0), FlSpot(1, spots.first.y)];
+    }
+    return spots;
   }
 
   String _formatCurrency(double amount) {
@@ -251,131 +277,59 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                       spacing: 16,
                       runSpacing: 16,
                       children: [
-                        SizedBox(
-                          width: 320,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Pilih Cabang',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedCabangId,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                items: [
-                                  const DropdownMenuItem(
-                                    value: '',
-                                    child: Text('Semua Cabang'),
-                                  ),
-                                  ..._cabangs.map(
-                                    (cab) => DropdownMenuItem(
-                                      value: cab.id,
-                                      child: Text(cab.nama),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedCabangId = value ?? '';
-                                  });
-                                },
-                              ),
+                        _buildFilterField(
+                          context,
+                          label: 'Pilih Cabang',
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedCabangId,
+                            decoration: const InputDecoration(),
+                            items: [
+                              const DropdownMenuItem(value: '', child: Text('Semua Cabang')),
+                              ..._cabangs.map((cab) => DropdownMenuItem(value: cab.id, child: Text(cab.nama))),
                             ],
+                            onChanged: (value) => setState(() => _selectedCabangId = value ?? ''),
                           ),
                         ),
-                        SizedBox(
-                          width: 320,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Pilih Periode',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedPeriod,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                items: ['Harian', 'Mingguan', 'Bulanan']
-                                    .map(
-                                      (period) => DropdownMenuItem(
-                                        value: period,
-                                        child: Text(period),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedPeriod = value ?? 'Bulanan';
-                                    _selectedDateRange = null;
-                                  });
-                                },
-                              ),
-                            ],
+                        _buildFilterField(
+                          context,
+                          label: 'Pilih Periode',
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedPeriod,
+                            decoration: const InputDecoration(),
+                            items: ['Harian', 'Mingguan', 'Bulanan']
+                                .map((period) => DropdownMenuItem(value: period, child: Text(period)))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedPeriod = value ?? 'Bulanan';
+                                _selectedDateRange = null;
+                              });
+                            },
                           ),
                         ),
-                        SizedBox(
-                          width: 320,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Pilih Tanggal (Range)',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _selectDateRange,
-                                icon: const Icon(Icons.calendar_today),
-                                label: Text(
-                                  _selectedDateRange != null
-                                      ? '${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.end)}'
-                                      : 'Pilih Range Tanggal',
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        _buildFilterField(
+                          context,
+                          label: 'Pilih Tanggal (Range)',
+                          child: ElevatedButton.icon(
+                            onPressed: _selectDateRange,
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text(
+                              _selectedDateRange != null
+                                  ? '${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange!.end)}'
+                                  : 'Pilih Range Tanggal',
+                            ),
                           ),
                         ),
                         if (_selectedDateRange == null)
-                          SizedBox(
-                            width: 320,
+                          _buildFilterField(
+                            context,
+                            label: 'Navigasi Periode',
                             child: Card(
                               color: Colors.grey.shade100,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.chevron_left),
@@ -385,10 +339,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                                       child: Text(
                                         _getPeriodLabel(),
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                       ),
                                     ),
                                     IconButton(
@@ -425,28 +376,29 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _buildSummaryCard(
-                          'MODAL AWAL',
-                          _formatCurrency(_modalAwal),
-                        ),
-                        _buildSummaryCard(
-                          'TOTAL PEMASUKAN',
-                          _formatCurrency(_totalPemasukan.toDouble()),
-                        ),
-                        _buildSummaryCard(
-                          'TOTAL PENGELUARAN',
-                          _formatCurrency(_totalPengeluaran.toDouble()),
-                        ),
-                        _buildSummaryCard(
-                          'SALDO AKHIR',
-                          _formatCurrency(_saldoAkhir),
-                        ),
-                      ],
-                    ),
+                    Responsive.isMobile(context)
+                        ? Column(
+                            children: [
+                              _buildSummaryCard('MODAL AWAL', _formatCurrency(_modalAwal), expand: false),
+                              const SizedBox(height: 12),
+                              _buildSummaryCard('TOTAL PEMASUKAN', _formatCurrency(_totalPemasukan.toDouble()), expand: false),
+                              const SizedBox(height: 12),
+                              _buildSummaryCard('TOTAL PENGELUARAN', _formatCurrency(_totalPengeluaran.toDouble()), expand: false),
+                              const SizedBox(height: 12),
+                              _buildSummaryCard('SALDO KAS', _formatCurrency(_saldoKas), expand: false),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              _buildSummaryCard('MODAL AWAL', _formatCurrency(_modalAwal)),
+                              const SizedBox(width: 12),
+                              _buildSummaryCard('TOTAL PEMASUKAN', _formatCurrency(_totalPemasukan.toDouble())),
+                              const SizedBox(width: 12),
+                              _buildSummaryCard('TOTAL PENGELUARAN', _formatCurrency(_totalPengeluaran.toDouble())),
+                              const SizedBox(width: 12),
+                              _buildSummaryCard('SALDO KAS', _formatCurrency(_saldoKas)),
+                            ],
+                          ),
                   ],
                 ),
               ),
@@ -470,62 +422,181 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    Responsive.isMobile(context)
+                        ? Column(
+                            children: [
+                              _buildChartMetricCard(
+                                'Total Pemasukan',
+                                _formatCurrency(_totalPemasukan.toDouble()),
+                                incomeChartColor,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildChartMetricCard(
+                                'Total Pengeluaran',
+                                _formatCurrency(_totalPengeluaran.toDouble()),
+                                expenseChartColor,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildChartMetricCard(
+                                'Laba Bersih',
+                                _formatCurrency(_labaBersih),
+                                _labaBersih >= 0 ? incomeChartColor : expenseChartColor,
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: _buildChartMetricCard(
+                                  'Total Pemasukan',
+                                  _formatCurrency(_totalPemasukan.toDouble()),
+                                  incomeChartColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildChartMetricCard(
+                                  'Total Pengeluaran',
+                                  _formatCurrency(_totalPengeluaran.toDouble()),
+                                  expenseChartColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildChartMetricCard(
+                                  'Laba Bersih',
+                                  _formatCurrency(_labaBersih),
+                                  _labaBersih >= 0 ? incomeChartColor : expenseChartColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                    const SizedBox(height: 16),
                     SizedBox(
                       height: 220,
                       width: double.infinity,
                       child: LineChart(
                         LineChartData(
-                          gridData: FlGridData(show: true),
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            getDrawingHorizontalLine: (_) => FlLine(
+                              color: Colors.grey.shade100,
+                              strokeWidth: 1,
+                            ),
+                          ), // ← FlGridData
                           titlesData: FlTitlesData(
                             bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 28,
+                                getTitlesWidget: (value, meta) {
+                                  final idx = value.toInt();
+                                  if (idx < 0 || idx >= _allChartDates.length) {
+                                    return const SizedBox();
+                                  }
+                                  final date = _allChartDates[idx];
+                                  return Text(
+                                    DateFormat('d MMM').format(date),
+                                    style: const TextStyle(fontSize: 9, color: Colors.grey),
+                                  );
+                                },
+                              ), // ← SideTitles
+                            ), // ← AxisTitles
                             leftTitles: AxisTitles(
                               sideTitles: SideTitles(
                                 showTitles: true,
-                                reservedSize: 42,
-                              ),
-                            ),
-                            rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          borderData: FlBorderData(show: true),
+                                reservedSize: 56,
+                                getTitlesWidget: (value, meta) {
+                                  String text;
+                                  if (value >= 1000000) {
+                                    text = '${(value / 1000000).toStringAsFixed(1)}jt';
+                                  } else if (value >= 1000) {
+                                    text = '${(value / 1000).toStringAsFixed(0)}rb';
+                                  } else {
+                                    text = value.toInt().toString();
+                                  }
+                                  return Text(text, style: const TextStyle(fontSize: 10, color: Colors.grey));
+                                },
+                              ), // ← SideTitles
+                            ), // ← AxisTitles
+                            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // ← AxisTitles
+                            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // ← AxisTitles
+                          ), // ← FlTitlesData
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                          ), // ← FlBorderData
+                          lineTouchData: LineTouchData(
+                            touchTooltipData: LineTouchTooltipData(
+                              getTooltipItems: (spots) => spots.map((spot) {
+                                final isIncome = spot.barIndex == 0;
+                                return LineTooltipItem(
+                                  'Rp ${NumberFormat.decimalPattern('id').format(spot.y.toInt())}',
+                                  TextStyle(
+                                    color: isIncome ? incomeChartColor : expenseChartColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }).toList(),
+                            ), // ← LineTouchTooltipData
+                          ), // ← LineTouchData
                           lineBarsData: [
                             LineChartBarData(
-                              spots: _chartDataPemasukan,
+                              spots: _safeSpots(_chartDataPemasukan),
                               isCurved: true,
-                              color: Colors.green,
-                              barWidth: 3,
-                              dotData: FlDotData(show: false),
-                            ),
+                              color: incomeChartColor,
+                              barWidth: 2.5,
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                                  radius: 3,
+                                  color: incomeChartColor,
+                                  strokeWidth: 0,
+                                ),
+                              ), // ← FlDotData
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: incomeChartColor.withOpacity(0.08),
+                              ), // ← BarAreaData
+                            ), // ← LineChartBarData
                             LineChartBarData(
-                              spots: _chartDataPengeluaran,
+                              spots: _safeSpots(_chartDataPengeluaran),
                               isCurved: true,
-                              color: Colors.red,
-                              barWidth: 3,
-                              dotData: FlDotData(show: false),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                              color: expenseChartColor,
+                              barWidth: 2.5,
+                              dashArray: [6, 4],
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                                  radius: 3,
+                                  color: expenseChartColor,
+                                  strokeWidth: 0,
+                                ),
+                              ), // ← FlDotData
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: expenseChartColor.withOpacity(0.06),
+                              ), // ← BarAreaData
+                            ), // ← LineChartBarData
+                          ], // ← lineBarsData
+                        ), // ← LineChartData
+                      ), // ← LineChart
+                    ), // ← SizedBox
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildLegend(Colors.green, 'Pemasukan'),
+                        _buildLegend(incomeChartColor, 'Pemasukan'),
                         const SizedBox(width: 16),
-                        _buildLegend(Colors.red, 'Pengeluaran'),
+                        _buildLegend(expenseChartColor, 'Pengeluaran'),
                       ],
-                    ),
+                    ), // ← Row
                   ],
-                ),
-              ),
-            ),
+                ), // ← Column
+              ), // ← Padding
+            ), // ← Card
             const SizedBox(height: 16),
             Card(
               elevation: 2,
@@ -627,7 +698,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                     const Text(
                       'Laporan ini menampilkan data keuangan berdasarkan cabang yang dipilih.\n'
                       'Data mencakup seluruh transaksi pemasukan dan pengeluaran dalam periode yang dipilih.\n'
-                      'Saldo akhir dihitung berdasarkan: modal awal cabang + total pemasukan - total pengeluaran.\n'
+                      'Saldo kas dihitung berdasarkan: modal awal cabang + total pemasukan - total pengeluaran.\n'
                       'Grafik menunjukkan perkembangan usaha dalam periode tertentu.\n'
                       'Tabel detail menampilkan semua transaksi dengan informasi lengkap.',
                       style: TextStyle(fontSize: 14),
@@ -643,10 +714,31 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 150, maxWidth: 180),
-      padding: const EdgeInsets.all(12),
+  Widget _buildFilterField(BuildContext context, {required String label, required Widget child}) {
+    final width = Responsive.isMobile(context)
+        ? double.infinity
+        : Responsive.isTablet(context)
+            ? 280.0
+            : 300.0;
+
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, {bool expand = true}) {
+    final card = Container(
+      width: expand ? null : double.infinity,
+      constraints: const BoxConstraints(minWidth: 140),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
@@ -654,15 +746,30 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-          ),
+          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+
+    return expand ? Expanded(child: card) : card;
+  }
+
+  Widget _buildChartMetricCard(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );

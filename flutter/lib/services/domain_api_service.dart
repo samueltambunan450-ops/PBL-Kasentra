@@ -18,6 +18,8 @@ class DomainApiService {
     required String nama,
     required String alamat,
     required double modalAwal,
+    String? jamBuka,
+    String? jamTutup,
   }) async {
     final response = await ApiService.post(
       '/cabangs',
@@ -26,6 +28,8 @@ class DomainApiService {
         'nama': nama,
         'alamat': alamat,
         'modal_awal': modalAwal,
+        'jam_buka': jamBuka,
+        'jam_tutup': jamTutup,
       },
     ) as Map<String, dynamic>;
     return Cabang.fromJson(response['data'] as Map<String, dynamic>);
@@ -36,6 +40,8 @@ class DomainApiService {
     required String nama,
     required String alamat,
     required double modalAwal,
+    String? jamBuka,
+    String? jamTutup,
   }) async {
     final response = await ApiService.put(
       '/cabangs/$id',
@@ -44,6 +50,8 @@ class DomainApiService {
         'nama': nama,
         'alamat': alamat,
         'modal_awal': modalAwal,
+        'jam_buka': jamBuka,
+        'jam_tutup': jamTutup,
       },
     ) as Map<String, dynamic>;
     return Cabang.fromJson(response['data'] as Map<String, dynamic>);
@@ -112,15 +120,24 @@ class DomainApiService {
         tanggal: DateTime.parse(m['tanggal'].toString()),
         nominal: int.tryParse(m['nominal'].toString()) ?? 0,
         keterangan: (m['keterangan'] ?? '').toString(),
-        kategori: (m['kategori'] is Map<String, dynamic>) ? (m['kategori']['nama'] ?? '').toString() : null,
+        kategori: (m['kategori'] is Map<String, dynamic>)
+            ? (m['kategori']['nama'] ?? '').toString()
+            : m['kategori']?.toString(),
         jenis: m['jenis'] == 'pemasukan' ? TransaksiJenis.pemasukan : TransaksiJenis.pengeluaran,
         cabangId: m['cabang_id'].toString(),
         userId: m['user_id'].toString(),
+        fotoBukti: m['foto_bukti']?.toString(),
+        isModalKiriman: m['is_modal_kiriman'] == true || m['is_modal_kiriman']?.toString() == '1' || m['is_modal_kiriman']?.toString().toLowerCase() == 'true',
       );
     }).toList();
   }
 
-  static Future<void> createTransaksi(Transaksi t, {String? kategoriId}) async {
+  static Future<void> createTransaksi(
+    Transaksi t, {
+    String? kategoriId,
+    String? fotoBuktiBase64,
+    bool isModalKiriman = false,
+  }) async {
     await ApiService.post(
       '/transaksis',
       token: AuthService.token,
@@ -131,6 +148,31 @@ class DomainApiService {
         'nominal': t.nominal,
         'tanggal': t.tanggal.toIso8601String().substring(0, 10),
         'keterangan': t.keterangan,
+        'foto_bukti': fotoBuktiBase64,
+        'is_modal_kiriman': isModalKiriman,
+      },
+    );
+  }
+
+  static Future<bool> cekPengeluaranHariIni() async {
+    final response = await ApiService.get(
+      '/transaksis/cek-pengeluaran-hari-ini',
+      token: AuthService.token,
+    ) as Map<String, dynamic>;
+    return response['sudah_ada_pengeluaran'] == true;
+  }
+
+  static Future<void> updateJamOperasional(
+    String cabangId, {
+    required String jamBuka,
+    required String jamTutup,
+  }) async {
+    await ApiService.put(
+      '/cabangs/$cabangId/jam-operasional',
+      token: AuthService.token,
+      body: {
+        'jam_buka': jamBuka,
+        'jam_tutup': jamTutup,
       },
     );
   }
@@ -198,11 +240,18 @@ class DomainApiService {
   }
 
   static Future<AppUser> validateInvitation(String code) async {
+    final currentUser = AuthService.currentUser;
+    if (currentUser == null || currentUser.id.isEmpty || currentUser.email.isEmpty) {
+      throw Exception('Pengguna belum terautentikasi untuk validasi undangan.');
+    }
+
     final response = await ApiService.post(
       '/auth/invitation/validate',
       token: AuthService.token,
       body: {
         'code': code,
+        'google_uid': currentUser.id,
+        'email': currentUser.email,
       },
     ) as Map<String, dynamic>;
     return AppUser.fromMap(response['user'] as Map<String, dynamic>);

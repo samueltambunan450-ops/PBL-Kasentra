@@ -9,11 +9,12 @@ class Transaksi {
   final DateTime tanggal;
   final int nominal;
   final String keterangan;
-  final String?
-  kategori; // kategori untuk laporan (operasional, gaji, lain-lain)
+  final String? kategori; // kategori untuk laporan (operasional, gaji, lain-lain)
   final TransaksiJenis jenis;
   final String cabangId; // ID cabang tempat transaksi terjadi
   final String userId; // ID user yang menambah transaksi
+  final String? fotoBukti;
+  final bool isModalKiriman;
 
   Transaksi({
     required this.id,
@@ -24,19 +25,37 @@ class Transaksi {
     required this.jenis,
     required this.cabangId,
     required this.userId,
+    this.fotoBukti,
+    this.isModalKiriman = false,
   });
 
   // Factory untuk membuat Transaksi dari Map
   factory Transaksi.fromMap(Map<String, dynamic> map) {
+    final jenisValue = map['jenis'];
+    final jenis = jenisValue is int
+        ? TransaksiJenis.values[jenisValue]
+        : (jenisValue?.toString() == 'pemasukan'
+            ? TransaksiJenis.pemasukan
+            : TransaksiJenis.pengeluaran);
+
+    final isModalValue = map['is_modal_kiriman'] ?? map['isModalKiriman'];
+    final isModal = isModalValue == true ||
+        isModalValue?.toString().toLowerCase() == 'true' ||
+        isModalValue?.toString() == '1';
+
     return Transaksi(
       id: map['id'],
-      tanggal: DateTime.parse(map['tanggal']),
-      nominal: map['nominal'],
-      keterangan: map['keterangan'],
-      kategori: map['kategori'],
-      jenis: TransaksiJenis.values[map['jenis']],
-      cabangId: map['cabangId'],
-      userId: map['userId'],
+      tanggal: DateTime.parse(map['tanggal'].toString()),
+      nominal: int.tryParse(map['nominal'].toString()) ?? 0,
+      keterangan: map['keterangan']?.toString() ?? '',
+      kategori: map['kategori'] is Map<String, dynamic>
+          ? (map['kategori']['nama']?.toString() ?? '')
+          : map['kategori']?.toString(),
+      jenis: jenis,
+      cabangId: map['cabangId'] ?? map['cabang_id']?.toString() ?? '',
+      userId: map['userId'] ?? map['user_id']?.toString() ?? '',
+      fotoBukti: map['foto_bukti']?.toString(),
+      isModalKiriman: isModal,
     );
   }
 
@@ -51,6 +70,8 @@ class Transaksi {
       'jenis': jenis.index,
       'cabangId': cabangId,
       'userId': userId,
+      'foto_bukti': fotoBukti,
+      'is_modal_kiriman': isModalKiriman,
     };
   }
 

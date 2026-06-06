@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
+import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
 
 enum PeriodeFilter { hariIni, mingguIni, bulanIni }
@@ -58,22 +61,11 @@ class _HistoryPageState extends State<HistoryPage> {
     }).toList();
   }
 
+  String _formatRupiah(int value) =>
+      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(value);
+
   String _namaBulan(int bulan) {
-    const nama = [
-      "",
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Agu",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
-    ];
+    const nama = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
     return nama[bulan];
   }
 
@@ -82,198 +74,250 @@ class _HistoryPageState extends State<HistoryPage> {
     return CommonPageScaffold(
       title: 'Riwayat Transaksi',
       subtitle: 'Semua transaksi terbaru',
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text('Filter: ', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(width: 8),
-                DropdownButton<PeriodeFilter>(
-                  value: filter,
-                  items: PeriodeFilter.values.map((f) {
-                    return DropdownMenuItem(
-                      value: f,
-                      child: Text(f.label),
-                    );
-                  }).toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => filter = v);
-                  },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: DropdownButtonFormField<PeriodeFilter>(
+              value: filter,
+              decoration: const InputDecoration(
+                labelText: 'Filter periode',
+                border: InputBorder.none,
+              ),
+              items: PeriodeFilter.values
+                  .map((f) => DropdownMenuItem(value: f, child: Text(f.label)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => filter = v);
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _filtered.isEmpty
+                ? Center(
+                    child: Text(
+                      'Belum ada transaksi',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final t = _filtered[index];
+                      int saldoKumulatif = 0;
+                      for (int i = 0; i <= index; i++) {
+                        final trans = _filtered[i];
+                        saldoKumulatif += trans.jenis == TransaksiJenis.pemasukan
+                            ? trans.nominal
+                            : -trans.nominal;
+                      }
+                      final isUntung = saldoKumulatif >= 0;
+                      final warnaSaldo = isUntung ? AppColors.income : AppColors.expense;
+                      final isMobile = Responsive.isMobile(context);
+
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildHistoryLeading(t),
+                                  const SizedBox(height: 12),
+                                  _buildHistoryActions(t, warnaSaldo, isUntung),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: _buildHistoryLeading(t)),
+                                  _buildHistoryActions(t, warnaSaldo, isUntung),
+                                ],
+                              ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryLeading(Transaksi t) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: t.warna.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            t.jenis == TransaksiJenis.pemasukan ? Icons.arrow_downward : Icons.arrow_upward,
+            color: t.warna,
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.kategori != null && t.kategori!.isNotEmpty
+                    ? '${t.kategori} – ${t.keterangan}'
+                    : t.keterangan,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              if (t.fotoBukti != null) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => _lihatFoto(t.fotoBukti!),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.photo_outlined, size: 14, color: Colors.blue.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Lihat bukti foto',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue.shade600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Belum ada transaksi',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filtered.length,
-                      itemBuilder: (context, index) {
-                        final t = _filtered[index];
-                        int saldoKumulatif = 0;
-                        for (int i = 0; i <= index; i++) {
-                          final trans = _filtered[i];
-                          if (trans.jenis == TransaksiJenis.pemasukan) {
-                            saldoKumulatif += trans.nominal;
-                          } else {
-                            saldoKumulatif -= trans.nominal;
-                          }
-                        }
-                        final isUntung = saldoKumulatif >= 0;
-                        final warnaSaldo = isUntung ? Colors.green : Colors.red;
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: t.warna.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Icon(
-                                      t.jenis == TransaksiJenis.pemasukan
-                                          ? Icons.arrow_downward
-                                          : Icons.arrow_upward,
-                                      color: t.warna,
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        t.kategori != null && t.kategori!.isNotEmpty
-                                            ? '${t.kategori} – ${t.keterangan}'
-                                            : t.keterangan,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Rp ${t.nominal}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: t.warna,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
-                                        onPressed: () => widget.onEdit(t),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                      if (widget.role == UserRole.owner)
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                          onPressed: () async {
-                                            final confirmed = await showDialog<bool>(
-                                              context: context,
-                                              builder: (_) => AlertDialog(
-                                                title: const Text('Hapus transaksi'),
-                                                content: const Text('Yakin ingin menghapus transaksi ini?'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context, false),
-                                                    child: const Text('Batal'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context, true),
-                                                    child: const Text('Hapus'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (confirmed == true) {
-                                              try {
-                                                await widget.onDelete(t.id);
-                                              } catch (e) {
-                                                if (!mounted) return;
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Gagal menghapus: $e'),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            }
-                                          },
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isUntung ? Icons.trending_up : Icons.trending_down,
-                                        size: 14,
-                                        color: warnaSaldo,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        isUntung ? 'Untung' : 'Rugi',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: warnaSaldo,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+  Widget _buildHistoryActions(Transaksi t, Color warnaSaldo, bool isUntung) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatRupiah(t.nominal),
+              style: TextStyle(fontWeight: FontWeight.bold, color: t.warna),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
+              onPressed: () => widget.onEdit(t),
+              visualDensity: VisualDensity.compact,
+            ),
+            if (widget.role == UserRole.owner)
+              IconButton(
+                icon: const Icon(Icons.delete, size: 18, color: AppColors.expense),
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Hapus transaksi'),
+                      content: const Text('Yakin ingin menghapus transaksi ini?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
+                      ],
                     ),
+                  );
+                  if (confirmed == true) {
+                    try {
+                      await widget.onDelete(t.id);
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gagal menghapus: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                visualDensity: VisualDensity.compact,
+              ),
+          ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isUntung ? Icons.trending_up : Icons.trending_down, size: 14, color: warnaSaldo),
+            const SizedBox(width: 4),
+            Text(isUntung ? 'Untung' : 'Rugi', style: TextStyle(fontSize: 12, color: warnaSaldo)),
+          ],
+        ),
+        if (t.isModalKiriman)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Modal dari Owner',
+              style: TextStyle(fontSize: 10, color: Colors.blue.shade700),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _lihatFoto(String fotoUrl) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                'http://192.168.1.2:8000/storage/$fotoUrl',
+                fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) =>
+                    progress == null ? child : const Center(child: CircularProgressIndicator()),
+                errorBuilder: (_, __, ___) => const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
             ),
           ],
         ),

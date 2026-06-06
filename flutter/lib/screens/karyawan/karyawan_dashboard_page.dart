@@ -4,6 +4,10 @@ import '../../models/transaksi.dart';
 import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../services/domain_api_service.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/responsive.dart';
+import '../../widgets/adaptive_dashboard_scaffold.dart';
+import '../../widgets/stat_card.dart';
 import '../add_transaction_page.dart';
 import '../login_page.dart';
 
@@ -42,9 +46,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
   Future<void> _onSaved(Transaksi transaksi) async {
     await _refreshTransaksi();
     if (!mounted) return;
-    setState(() {
-      _currentIndex = 0;
-    });
+    setState(() => _currentIndex = 0);
   }
 
   Future<void> _logout() async {
@@ -66,21 +68,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
   }
 
   String _formatTanggal(DateTime date) {
-    const bulan = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'Mei',
-      'Jun',
-      'Jul',
-      'Agu',
-      'Sep',
-      'Okt',
-      'Nov',
-      'Des',
-    ];
+    const bulan = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     return '${date.day} ${bulan[date.month]} ${date.year}';
   }
 
@@ -101,9 +89,9 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
   List<Transaksi> get _todayBranchTransaksis {
     final now = DateTime.now();
     return _branchTransaksis.where((t) {
-      return t.tanggal.year == now.year;
-      t.tanggal.month == now.month;
-      t.tanggal.day == now.day;
+      return t.tanggal.year == now.year &&
+          t.tanggal.month == now.month &&
+          t.tanggal.day == now.day;
     }).toList();
   }
 
@@ -117,8 +105,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
 
   int get _saldoCabang => _branchTransaksis.fold(
     0,
-    (sum, t) =>
-        sum + (t.jenis == TransaksiJenis.pemasukan ? t.nominal : -t.nominal),
+    (sum, t) => sum + (t.jenis == TransaksiJenis.pemasukan ? t.nominal : -t.nominal),
   );
 
   List<Transaksi> get _sortedUserTransaksis {
@@ -127,7 +114,9 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
     return list;
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(BuildContext context) {
+    final isWide = !Responsive.isMobile(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -136,96 +125,72 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _buildSummaryItem(
-                label: 'Pemasukan hari ini',
-                value: _formatRupiah(_todayIncome),
-                color: Colors.green,
-              ),
-              const SizedBox(width: 12),
-              _buildSummaryItem(
-                label: 'Pengeluaran hari ini',
-                value: _formatRupiah(_todayExpense),
-                color: Colors.red,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: isWide
+          ? Row(
               children: [
-                const Text(
-                  'Saldo Cabang',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w500,
+                Expanded(child: MetricTile(title: 'Pemasukan hari ini', value: _formatRupiah(_todayIncome), color: AppColors.income)),
+                const SizedBox(width: 12),
+                Expanded(child: MetricTile(title: 'Pengeluaran hari ini', value: _formatRupiah(_todayExpense), color: AppColors.expense)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Saldo Cabang', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                        const SizedBox(height: 8),
+                        Text(
+                          _formatRupiah(_saldoCabang),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _formatRupiah(_saldoCabang),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+              ],
+            )
+          : Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: MetricTile(title: 'Pemasukan hari ini', value: _formatRupiah(_todayIncome), color: AppColors.income)),
+                    const SizedBox(width: 12),
+                    Expanded(child: MetricTile(title: 'Pengeluaran hari ini', value: _formatRupiah(_todayExpense), color: AppColors.expense)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Saldo Cabang', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatRupiah(_saldoCabang),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem({
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -234,10 +199,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Riwayat Transaksi',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        const Text('Riwayat Transaksi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         if (transactions.isEmpty)
           Container(
@@ -246,13 +208,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: const Text(
               'Belum ada transaksi yang ditambahkan oleh Anda.',
@@ -267,81 +223,60 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final item = transactions[index];
+              final isMobile = Responsive.isMobile(context);
               return Container(
-                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
+                child: isMobile
+                    ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.kategori ?? '-',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          Text(item.kategori ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 6),
-                          Text(
-                            item.keterangan,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
+                          Text(item.keterangan, style: const TextStyle(color: Colors.black54)),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(_formatTanggal(item.tanggal), style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                              Text(
+                                _formatRupiah(item.nominal),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: item.jenis == TransaksiJenis.pemasukan ? AppColors.income : AppColors.expense,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.kategori ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 6),
+                                Text(item.keterangan, style: const TextStyle(color: Colors.black54)),
+                                const SizedBox(height: 8),
+                                Text(_formatTanggal(item.tanggal), style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 12),
                           Text(
-                            _formatTanggal(item.tanggal),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black45,
+                            _formatRupiah(item.nominal),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: item.jenis == TransaksiJenis.pemasukan ? AppColors.income : AppColors.expense,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          _formatRupiah(item.nominal),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: item.jenis == TransaksiJenis.pemasukan
-                                ? Colors.green
-                                : Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          item.jenis == TransaksiJenis.pemasukan
-                              ? 'Pemasukan'
-                              : 'Pengeluaran',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
               );
             },
           ),
@@ -352,62 +287,50 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
   Widget _buildProfilePage() {
     final user = _currentUser;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          const Text(
-            'Profil Karyawan',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProfileField('Nama', user?.nama ?? '-'),
-                const SizedBox(height: 14),
-                _buildProfileField('Email', user?.email ?? '-'),
-                const SizedBox(height: 14),
-                _buildProfileField('Cabang', user?.cabangId ?? '-'),
-                const SizedBox(height: 14),
-                _buildProfileField('Peran', 'Karyawan'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _logout,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
+      padding: Responsive.pagePadding(context),
+      child: ResponsiveContent(
+        padding: EdgeInsets.zero,
+        maxWidth: Responsive.formMaxWidth(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Profil Karyawan', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              child: const Text(
-                'Logout',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileField('Nama', user?.nama ?? '-'),
+                  const SizedBox(height: 14),
+                  _buildProfileField('Email', user?.email ?? '-'),
+                  const SizedBox(height: 14),
+                  _buildProfileField('Cabang', user?.cabangId ?? '-'),
+                  const SizedBox(height: 14),
+                  _buildProfileField('Peran', 'Karyawan'),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _logout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.expense,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -416,110 +339,70 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black54,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        Text(title, style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
         const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
   Widget _buildHomePage() {
     final user = _currentUser;
-    return Container(
-      color: Colors.green,
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: AppColors.primary,
+      body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF2D6A2D), Color(0xFF4CAF50)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(30),
-                ),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox(width: 48),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.notifications_none,
-                          color: Colors.white,
-                        ),
+            Padding(
+              padding: Responsive.pagePadding(context).copyWith(bottom: 12),
+              child: ResponsiveContent(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.nama ?? 'Karyawan',
+                      style: TextStyle(
+                        fontSize: Responsive.value(context, mobile: 24.0, tablet: 28.0, desktop: 32.0),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    user?.nama ?? 'Karyawan',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Karyawan',
-                    style: TextStyle(fontSize: 14, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Saldo Cabang',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _formatRupiah(_saldoCabang),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 6),
+                    const Text('Karyawan', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 16),
+                    const Text('Saldo Cabang', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatRupiah(_saldoCabang),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: Responsive.value(context, mobile: 28.0, tablet: 32.0, desktop: 36.0),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Expanded(
               child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(30),
-                  ),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 10),
-                      _buildSummaryCard(),
-                      const SizedBox(height: 24),
-                      _buildHistorySection(),
-                      const SizedBox(height: 24),
-                    ],
+                  padding: Responsive.pagePadding(context),
+                  child: ResponsiveContent(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSummaryCard(context),
+                        const SizedBox(height: 24),
+                        _buildHistorySection(),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -538,37 +421,31 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
 
     final pages = <Widget>[
       _buildHomePage(),
-      AddTransactionPage(onSaved: _onSaved),
+      AddTransactionPage(onSaved: _onSaved, embedded: true),
       _buildProfilePage(),
     ];
 
-    return Scaffold(
-      body: pages[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Colors.green),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            selectedIcon: Icon(Icons.add_circle, color: Colors.green),
-            label: 'Tambah',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Colors.green),
-            label: 'Profil',
-          ),
-        ],
-      ),
+    return AdaptiveDashboardScaffold(
+      currentIndex: _currentIndex,
+      onDestinationSelected: (index) => setState(() => _currentIndex = index),
+      pages: pages,
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home, color: AppColors.primary),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.add_circle_outline),
+          selectedIcon: Icon(Icons.add_circle, color: AppColors.primary),
+          label: 'Tambah',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person, color: AppColors.primary),
+          label: 'Profil',
+        ),
+      ],
     );
   }
 }

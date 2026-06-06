@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'package:intl/intl.dart';
 
 import '../models/cabang.dart';
 import '../models/periode_filter.dart';
@@ -6,6 +8,9 @@ import '../models/transaksi.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/domain_api_service.dart';
+import '../theme/app_theme.dart';
+import '../utils/responsive.dart';
+import '../widgets/stat_card.dart';
 
 class HomePage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -27,7 +32,6 @@ class _HomePageState extends State<HomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
   String? _selectedCabangId;
   List<Cabang> _cabangs = [];
-  bool _loadingCabangs = true;
 
   @override
   void initState() {
@@ -43,20 +47,13 @@ class _HomePageState extends State<HomePage> {
     try {
       final list = await DomainApiService.fetchCabangs();
       if (!mounted) return;
-      setState(() {
-        _cabangs = list;
-        _loadingCabangs = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingCabangs = false);
-    }
+      setState(() => _cabangs = list);
+    } catch (_) {}
   }
 
   List<Transaksi> get _filtered {
     final now = DateTime.now();
     return widget.transaksi.where((t) {
-      // Filter berdasarkan cabang jika dipilih
       if (_selectedCabangId != null && t.cabangId != _selectedCabangId) {
         return false;
       }
@@ -86,36 +83,30 @@ class _HomePageState extends State<HomePage> {
   double get modalAwal {
     if (_selectedCabangId == null) {
       return _cabangs.fold(0.0, (sum, c) => sum + c.modalAwal);
-    } else {
-      final cabang = _cabangs.firstWhere(
-        (c) => c.id == _selectedCabangId,
-        orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
-      );
-      return cabang.modalAwal;
     }
+    final cabang = _cabangs.firstWhere(
+      (c) => c.id == _selectedCabangId,
+      orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
+    );
+    return cabang.modalAwal;
   }
 
   double get saldoSaatIni => modalAwal + totalMasuk - totalKeluar;
 
-  /// Data untuk grafik: pemasukan dan pengeluaran per hari dalam periode
   Map<String, Map<String, int>> get _chartData {
     final Map<String, Map<String, int>> data = {};
-
     for (final t in _filtered) {
       final key = "${t.tanggal.day}/${t.tanggal.month}";
       data.putIfAbsent(key, () => {'masuk': 0, 'keluar': 0});
-
       if (t.jenis == TransaksiJenis.pemasukan) {
         data[key]!['masuk'] = data[key]!['masuk']! + t.nominal;
       } else {
         data[key]!['keluar'] = data[key]!['keluar']! + t.nominal;
       }
     }
-
     return data;
   }
 
-  /// List tanggal unik yang sudah diurutkan untuk sumbu X
   List<String> get _chartDates {
     final dates = _chartData.keys.toList();
     dates.sort((a, b) {
@@ -124,631 +115,123 @@ class _HomePageState extends State<HomePage> {
       final aMonth = int.parse(aParts[1]);
       final bMonth = int.parse(bParts[1]);
       if (aMonth != bMonth) return aMonth.compareTo(bMonth);
-      final aDay = int.parse(aParts[0]);
-      final bDay = int.parse(bParts[0]);
-      return aDay.compareTo(bDay);
+      return int.parse(aParts[0]).compareTo(int.parse(bParts[0]));
     });
     return dates;
   }
 
-  /// Nilai pemasukan untuk grafik
-  List<int> get _chartPemasukan {
-    return _chartDates.map((date) => _chartData[date]!['masuk'] ?? 0).toList();
-  }
+  List<int> get _chartPemasukan =>
+      _chartDates.map((d) => _chartData[d]!['masuk'] ?? 0).toList();
 
-  /// Nilai pengeluaran untuk grafik
-  List<int> get _chartPengeluaran {
-    return _chartDates.map((date) => _chartData[date]!['keluar'] ?? 0).toList();
-  }
+  List<int> get _chartPengeluaran =>
+      _chartDates.map((d) => _chartData[d]!['keluar'] ?? 0).toList();
+
+  String _formatRupiah(num value) =>
+      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+          .format(value);
 
   String _namaBulan(int bulan) {
     const nama = [
-      "",
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Agu",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
+      "", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
     ];
     return nama[bulan];
   }
 
+  String _periodeLabel(PeriodeFilter f) {
+    switch (f) {
+      case PeriodeFilter.hariIni:
+        return "Hari ini";
+      case PeriodeFilter.mingguIni:
+        return "Minggu ini";
+      case PeriodeFilter.bulanIni:
+        return "Bulan ini";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWide = !Responsive.isMobile(context);
+    final columns = Responsive.gridColumns(context, mobile: 1, tablet: 2, desktop: 2);
+
     return Scaffold(
-      backgroundColor: Colors.green,
+      backgroundColor: AppColors.primary,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "HALLO",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+              padding: Responsive.pagePadding(context).copyWith(bottom: 12),
+              child: ResponsiveContent(
+                padding: EdgeInsets.zero,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Halo, ${AuthService.currentUser?.nama.split(' ').first ?? 'Pengguna'}",
+                            style: TextStyle(
+                              fontSize: Responsive.value(context, mobile: 22.0, tablet: 26.0, desktop: 28.0),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.role == UserRole.owner
+                                ? "Pemilik Usaha"
+                                : "Karyawan",
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
                       ),
-                      Text(
-                        widget.role == UserRole.owner
-                            ? "Pemilik Usaha"
-                            : "Karyawan",
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
                       ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
+                      child: const Icon(Icons.notifications_none, color: Colors.white),
                     ),
-                    child: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(30),
-                  ),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Filter cabang dan periode
-                      if (widget.role == UserRole.owner) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String?>(
-                                decoration: const InputDecoration(
-                                  labelText: "Cabang",
-                                  border: OutlineInputBorder(),
-                                ),
-                                value: _selectedCabangId,
-                                items: [
-                                  const DropdownMenuItem<String?>(
-                                    value: null,
-                                    child: Text("Semua Cabang"),
-                                  ),
-                                  ..._cabangs.map(
-                                    (c) => DropdownMenuItem<String?>(
-                                      value: c.id,
-                                      child: Text(c.nama),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() => _selectedCabangId = value);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<PeriodeFilter>(
-                                decoration: const InputDecoration(
-                                  labelText: "Periode",
-                                  border: OutlineInputBorder(),
-                                ),
-                                value: filter,
-                                items: PeriodeFilter.values.map((f) {
-                                  final label = f == PeriodeFilter.hariIni
-                                      ? "Hari ini"
-                                      : f == PeriodeFilter.mingguIni
-                                      ? "Minggu ini"
-                                      : "Bulan ini";
-                                  return DropdownMenuItem(
-                                    value: f,
-                                    child: Text(label),
-                                  );
-                                }).toList(),
-                                onChanged: (v) {
-                                  if (v != null) setState(() => filter = v);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        // Untuk karyawan, tampilkan cabang mereka dan filter periode
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  "Cabang: ${_cabangs.firstWhere(
-                                    (c) => c.id == _selectedCabangId,
-                                    orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0),
-                                  ).nama}",
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<PeriodeFilter>(
-                                decoration: const InputDecoration(
-                                  labelText: "Periode",
-                                  border: OutlineInputBorder(),
-                                ),
-                                value: filter,
-                                items: PeriodeFilter.values.map((f) {
-                                  final label = f == PeriodeFilter.hariIni
-                                      ? "Hari ini"
-                                      : f == PeriodeFilter.mingguIni
-                                      ? "Minggu ini"
-                                      : "Bulan ini";
-                                  return DropdownMenuItem(
-                                    value: f,
-                                    child: Text(label),
-                                  );
-                                }).toList(),
-                                onChanged: (v) {
-                                  if (v != null) setState(() => filter = v);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      // Kartu saldo + ringkasan
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                24,
-                                24,
-                                18,
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 24,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Modal Awal",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                        Text(
-                                          "Rp ${modalAwal.toInt()}",
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 24,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Total Pemasukan",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                        Text(
-                                          "Rp $totalMasuk",
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 24,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Total Pengeluaran",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                        Text(
-                                          "Rp $totalKeluar",
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                      horizontal: 24,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(40),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          "Saldo Saat Ini",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          "Rp ${saldoSaatIni.toInt()}",
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    saldoSaatIni >= modalAwal
-                                        ? "Keuntungan periode ini"
-                                        : "Kerugian periode ini",
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      const SizedBox(height: 12),
-                      const Text(
-                        "GRAFIK KEUANGAN",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 250,
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: _chartDates.isEmpty
-                            ? Center(
-                                child: Text(
-                                  "Belum ada data",
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              )
-                            : CustomPaint(
-                                painter: _DualLineChartPainter(
-                                  dates: _chartDates,
-                                  pemasukan: _chartPemasukan,
-                                  pengeluaran: _chartPengeluaran,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Legend
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                  padding: Responsive.pagePadding(context),
+                  child: ResponsiveContent(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFilters(context, isWide),
+                        const SizedBox(height: 20),
+                        _buildSummarySection(context, columns),
+                        const SizedBox(height: 20),
+                        if (isWide)
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 16,
-                                height: 3,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                "Pemasukan",
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Expanded(flex: 3, child: _buildChartSection()),
+                              const SizedBox(width: 16),
+                              Expanded(flex: 2, child: _buildRecentTransactions()),
                             ],
-                          ),
-                          const SizedBox(width: 20),
-                          Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 3,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                "Pengeluaran",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
+                          )
+                        else ...[
+                          _buildChartSection(),
+                          const SizedBox(height: 20),
+                          _buildRecentTransactions(),
                         ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      const Text(
-                        "Riwayat Transaksi",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_filtered.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "Belum ada transaksi",
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ),
-                        )
-                      else
-                        Builder(
-                          builder: (context) {
-                            // Urutkan transaksi berdasarkan tanggal untuk perhitungan saldo
-                            final sorted = [..._filtered]
-                              ..sort((a, b) => a.tanggal.compareTo(b.tanggal));
-
-                            return Column(
-                              children: sorted.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final t = entry.value;
-
-                                // Hitung saldo kumulatif sampai transaksi ini
-                                int saldoKumulatif = 0;
-                                for (int i = 0; i <= index; i++) {
-                                  final trans = sorted[i];
-                                  if (trans.jenis == TransaksiJenis.pemasukan) {
-                                    saldoKumulatif += trans.nominal;
-                                  } else {
-                                    saldoKumulatif -= trans.nominal;
-                                  }
-                                }
-
-                                final isUntung = saldoKumulatif >= 0;
-                                final warnaSaldo = isUntung
-                                    ? Colors.green
-                                    : Colors.red;
-
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: BoxDecoration(
-                                              color: t.warna.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              t.jenis ==
-                                                      TransaksiJenis.pemasukan
-                                                  ? Icons.arrow_downward
-                                                  : Icons.arrow_upward,
-                                              color: t.warna,
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                t.kategori != null &&
-                                                        t.kategori!.isNotEmpty
-                                                    ? '${t.kategori} – ${t.keterangan}'
-                                                    : t.keterangan,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            "Rp ${t.nominal}",
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: t.warna,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                isUntung
-                                                    ? Icons.trending_up
-                                                    : Icons.trending_down,
-                                                size: 14,
-                                                color: warnaSaldo,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                isUntung
-                                                    ? "Untung Rp ${saldoKumulatif}"
-                                                    : "Rugi Rp ${saldoKumulatif.abs()}",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: warnaSaldo,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          if (widget.role == UserRole.owner)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 4,
-                                              ),
-                                              child: GestureDetector(
-                                                onTap: () =>
-                                                    widget.onDelete(t.id),
-                                                child: const Icon(
-                                                  Icons.delete,
-                                                  size: 16,
-                                                  color: Colors.red,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -756,6 +239,344 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFilters(BuildContext context, bool isWide) {
+    final periodeDropdown = DropdownButtonFormField<PeriodeFilter>(
+      value: filter,
+      decoration: const InputDecoration(labelText: "Periode"),
+      items: PeriodeFilter.values
+          .map((f) => DropdownMenuItem(value: f, child: Text(_periodeLabel(f))))
+          .toList(),
+      onChanged: (v) {
+        if (v != null) setState(() => filter = v);
+      },
+    );
+
+    if (widget.role == UserRole.owner) {
+      final cabangDropdown = DropdownButtonFormField<String?>(
+        value: _selectedCabangId,
+        decoration: const InputDecoration(labelText: "Cabang"),
+        items: [
+          const DropdownMenuItem(value: null, child: Text("Semua Cabang")),
+          ..._cabangs.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nama))),
+        ],
+        onChanged: (v) => setState(() => _selectedCabangId = v),
+      );
+
+      if (isWide) {
+        return Row(
+          children: [
+            Expanded(child: cabangDropdown),
+            const SizedBox(width: 12),
+            Expanded(child: periodeDropdown),
+          ],
+        );
+      }
+      return Column(
+        children: [
+          cabangDropdown,
+          const SizedBox(height: 12),
+          periodeDropdown,
+        ],
+      );
+    }
+
+    final cabangName = _cabangs
+        .firstWhere(
+          (c) => c.id == _selectedCabangId,
+          orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0),
+        )
+        .nama;
+
+    if (isWide) {
+      return Row(
+        children: [
+          Expanded(
+            child: InputDecorator(
+              decoration: const InputDecoration(labelText: "Cabang"),
+              child: Text(cabangName),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: periodeDropdown),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        InputDecorator(
+          decoration: const InputDecoration(labelText: "Cabang"),
+          child: Text(cabangName),
+        ),
+        const SizedBox(height: 12),
+        periodeDropdown,
+      ],
+    );
+  }
+
+  Widget _buildSummarySection(BuildContext context, int columns) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryDark, AppColors.primary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          GridView.count(
+            crossAxisCount: columns,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: Responsive.value(context, mobile: 2.8, tablet: 3.2, desktop: 3.5),
+            children: [
+              StatCard(label: "Modal Awal", value: _formatRupiah(modalAwal)),
+              StatCard(label: "Total Pemasukan", value: _formatRupiah(totalMasuk), valueColor: AppColors.income),
+              StatCard(label: "Total Pengeluaran", value: _formatRupiah(totalKeluar), valueColor: AppColors.expense),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Text("Saldo Saat Ini", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                const SizedBox(height: 8),
+                Text(
+                  _formatRupiah(saldoSaatIni),
+                  style: TextStyle(
+                    fontSize: Responsive.value(context, mobile: 22.0, tablet: 26.0, desktop: 28.0),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  saldoSaatIni >= modalAwal ? "Keuntungan periode ini" : "Kerugian periode ini",
+                  style: const TextStyle(color: AppColors.primary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Grafik Keuangan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        const SizedBox(height: 10),
+        Container(
+          height: Responsive.value(context, mobile: 220.0, tablet: 260.0, desktop: 280.0),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: _chartDates.isEmpty
+              ? Center(child: Text("Belum ada data", style: TextStyle(color: Colors.grey.shade600)))
+              : CustomPaint(
+                  painter: _DualLineChartPainter(
+                    dates: _chartDates,
+                    pemasukan: _chartPemasukan,
+                    pengeluaran: _chartPengeluaran,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _legendItem(AppColors.income, "Pemasukan"),
+            const SizedBox(width: 20),
+            _legendItem(AppColors.expense, "Pengeluaran"),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _legendItem(Color color, String label) {
+    return Row(
+      children: [
+        Container(width: 16, height: 3, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildRecentTransactions() {
+    final sorted = [..._filtered]..sort((a, b) => b.tanggal.compareTo(a.tanggal));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Riwayat Transaksi", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        const SizedBox(height: 10),
+        if (sorted.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(child: Text("Belum ada transaksi", style: TextStyle(color: Colors.grey.shade600))),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sorted.length > 8 ? 8 : sorted.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final t = sorted[index];
+              return _TransactionTile(
+                transaksi: t,
+                showDelete: widget.role == UserRole.owner,
+                onDelete: () => widget.onDelete(t.id),
+                formatDate: () => "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
+                formatRupiah: _formatRupiah,
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _TransactionTile extends StatelessWidget {
+  final Transaksi transaksi;
+  final bool showDelete;
+  final VoidCallback onDelete;
+  final String Function() formatDate;
+  final String Function(num) formatRupiah;
+
+  const _TransactionTile({
+    required this.transaksi,
+    required this.showDelete,
+    required this.onDelete,
+    required this.formatDate,
+    required this.formatRupiah,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLeading(),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_buildAmount(), if (showDelete) _buildDelete()],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                _buildLeading(),
+                const Spacer(),
+                _buildAmount(),
+                if (showDelete) ...[const SizedBox(width: 8), _buildDelete()],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildLeading() {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: transaksi.warna.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            transaksi.jenis == TransaksiJenis.pemasukan ? Icons.arrow_downward : Icons.arrow_upward,
+            color: transaksi.warna,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                transaksi.kategori != null && transaksi.kategori!.isNotEmpty
+                    ? '${transaksi.kategori} – ${transaksi.keterangan}'
+                    : transaksi.keterangan,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(formatDate(), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAmount() {
+    return Text(
+      formatRupiah(transaksi.nominal),
+      style: TextStyle(fontWeight: FontWeight.bold, color: transaksi.warna),
+    );
+  }
+
+  Widget _buildDelete() {
+    return IconButton(
+      onPressed: onDelete,
+      icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.expense),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -775,161 +596,73 @@ class _DualLineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (dates.isEmpty) return;
 
-    final paintAxis = Paint()
-      ..color = Colors.grey.shade400
-      ..strokeWidth = 1;
+    final paintAxis = Paint()..color = Colors.grey.shade400..strokeWidth = 1;
+    final paintGrid = Paint()..color = Colors.grey.shade300..strokeWidth = 0.5;
 
-    final paintGrid = Paint()
-      ..color = Colors.grey.shade300
-      ..strokeWidth = 0.5;
-
-    // Cari nilai min dan max untuk skala Y
     final allValues = [...pemasukan, ...pengeluaran];
-    int minV = allValues.isEmpty
-        ? 0
-        : allValues.reduce((a, b) => a < b ? a : b);
-    int maxV = allValues.isEmpty
-        ? 1000
-        : allValues.reduce((a, b) => a > b ? a : b);
-
-    if (minV == maxV) {
-      maxV = minV + 1000;
-      minV = 0;
-    }
-
-    // Bulatkan ke atas untuk interval yang rapi
-    final range = maxV - minV;
-    final interval = (range / 5).ceil();
+    int maxV = allValues.isEmpty ? 1000 : allValues.reduce((a, b) => a > b ? a : b);
+    if (maxV == 0) maxV = 1000;
+    final interval = (maxV / 5).ceil();
     final maxY = ((maxV / interval).ceil() * interval);
-    final minY = 0;
+    const minY = 0;
 
-    // Padding
     const double leftPadding = 40;
     const double bottomPadding = 30;
     const double topPadding = 20;
     final chartWidth = size.width - leftPadding - 8;
     final chartHeight = size.height - topPadding - bottomPadding;
-
-    // Gambar sumbu Y dan grid horizontal
     final yStart = topPadding;
     final yEnd = size.height - bottomPadding;
-    canvas.drawLine(
-      Offset(leftPadding, yStart),
-      Offset(leftPadding, yEnd),
-      paintAxis,
-    );
 
-    // Grid dan label Y (0, interval, 2*interval, ...)
+    canvas.drawLine(Offset(leftPadding, yStart), Offset(leftPadding, yEnd), paintAxis);
+
     for (int i = 0; i <= 5; i++) {
       final value = minY + (i * interval);
       final y = yEnd - (i / 5) * chartHeight;
-
-      // Grid line
       canvas.drawLine(Offset(leftPadding, y), Offset(size.width, y), paintGrid);
-
-      // Label Y
       final tp = TextPainter(
-        text: TextSpan(
-          text: value.toString(),
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
+        text: TextSpan(text: value.toString(), style: TextStyle(color: Colors.grey.shade700, fontSize: 10)),
+        textDirection: ui.TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(leftPadding - tp.width - 4, y - tp.height / 2));
     }
 
-    // Gambar sumbu X
-    canvas.drawLine(
-      Offset(leftPadding, yEnd),
-      Offset(size.width, yEnd),
-      paintAxis,
-    );
+    canvas.drawLine(Offset(leftPadding, yEnd), Offset(size.width, yEnd), paintAxis);
 
-    // Fungsi untuk konversi nilai ke koordinat Y
     double valueToY(int value) {
       if (maxY == minY) return yEnd;
-      final frac = (value - minY) / (maxY - minY);
-      return yEnd - (frac * chartHeight);
+      return yEnd - ((value - minY) / (maxY - minY)) * chartHeight;
     }
 
-    // Fungsi untuk konversi index ke koordinat X
     double indexToX(int index) {
       if (dates.length == 1) return leftPadding + chartWidth / 2;
       return leftPadding + (index / (dates.length - 1)) * chartWidth;
     }
 
-    // Gambar garis pemasukan (hijau)
-    if (pemasukan.isNotEmpty) {
-      final pointsMasuk = <Offset>[];
-      for (int i = 0; i < dates.length; i++) {
-        pointsMasuk.add(Offset(indexToX(i), valueToY(pemasukan[i])));
+    void drawLine(List<int> values, Color color) {
+      if (values.isEmpty) return;
+      final points = List.generate(values.length, (i) => Offset(indexToX(i), valueToY(values[i])));
+      final linePaint = Paint()..color = color..strokeWidth = 2.5..style = PaintingStyle.stroke;
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (int i = 1; i < points.length; i++) {
+        path.lineTo(points[i].dx, points[i].dy);
       }
-
-      final linePaintMasuk = Paint()
-        ..color = Colors.green
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke;
-
-      final pathMasuk = Path()
-        ..moveTo(pointsMasuk.first.dx, pointsMasuk.first.dy);
-      for (int i = 1; i < pointsMasuk.length; i++) {
-        pathMasuk.lineTo(pointsMasuk[i].dx, pointsMasuk[i].dy);
-      }
-      canvas.drawPath(pathMasuk, linePaintMasuk);
-
-      // Titik pada garis pemasukan
-      final dotPaintMasuk = Paint()
-        ..color = Colors.green
-        ..style = PaintingStyle.fill;
-      for (final p in pointsMasuk) {
-        canvas.drawCircle(p, 4, dotPaintMasuk);
+      canvas.drawPath(path, linePaint);
+      final dotPaint = Paint()..color = color..style = PaintingStyle.fill;
+      for (final p in points) {
+        canvas.drawCircle(p, 4, dotPaint);
       }
     }
 
-    // Gambar garis pengeluaran (merah)
-    if (pengeluaran.isNotEmpty) {
-      final pointsKeluar = <Offset>[];
-      for (int i = 0; i < dates.length; i++) {
-        pointsKeluar.add(Offset(indexToX(i), valueToY(pengeluaran[i])));
-      }
+    drawLine(pemasukan, AppColors.income);
+    drawLine(pengeluaran, AppColors.expense);
 
-      final linePaintKeluar = Paint()
-        ..color = Colors.red
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke;
-
-      final pathKeluar = Path()
-        ..moveTo(pointsKeluar.first.dx, pointsKeluar.first.dy);
-      for (int i = 1; i < pointsKeluar.length; i++) {
-        pathKeluar.lineTo(pointsKeluar[i].dx, pointsKeluar[i].dy);
-      }
-      canvas.drawPath(pathKeluar, linePaintKeluar);
-
-      // Titik pada garis pengeluaran
-      final dotPaintKeluar = Paint()
-        ..color = Colors.red
-        ..style = PaintingStyle.fill;
-      for (final p in pointsKeluar) {
-        canvas.drawCircle(p, 4, dotPaintKeluar);
-      }
-    }
-
-    // Label tanggal di sumbu X
     for (int i = 0; i < dates.length; i++) {
       final x = indexToX(i);
-      final dateParts = dates[i].split('/');
-      final label = dateParts[0]; // Hanya tampilkan hari
-
+      final label = dates[i].split('/')[0];
       final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(color: Colors.grey[700], fontSize: 9),
-        ),
-        textDirection: TextDirection.ltr,
+        text: TextSpan(text: label, style: TextStyle(color: Colors.grey.shade700, fontSize: 9)),
+        textDirection: ui.TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(x - tp.width / 2, yEnd + 4));
     }

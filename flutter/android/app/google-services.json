@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "178869717437",
+    "project_id": "kasentra-7e9b2",
+    "storage_bucket": "kasentra-7e9b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:178869717437:android:b008cb8bea4eed2a3e6ad4",
+        "android_client_info": {
+          "package_name": "com.fhrada.kasentra"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "178869717437-no8sbnlobon3eqr0qpvlvd2hmppe380d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAy8OhKwmK5bhlqdw9VLCoLB1VHPlZoekE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "178869717437-no8sbnlobon3eqr0qpvlvd2hmppe380d.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

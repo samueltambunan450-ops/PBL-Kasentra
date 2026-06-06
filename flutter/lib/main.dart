@@ -9,6 +9,7 @@ import 'screens/karyawan/karyawan_dashboard_page.dart';
 import 'screens/onboarding_page.dart';
 import 'services/auth_service.dart';
 import 'models/user.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,37 +27,27 @@ Future<void> main() async {
 class KasentraApp extends StatelessWidget {
   const KasentraApp({super.key});
 
+  Widget _buildHome(AppUser currentUser) {
+    if (currentUser.role == UserRole.pending) {
+      return OnboardingPage(user: currentUser);
+    }
+    if (currentUser.role == UserRole.owner) {
+      return DashboardPage(user: currentUser);
+    }
+    return const KaryawanDashboardPage();
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = AuthService.currentUser;
-    if (currentUser == null) {
-      return MaterialApp(
-        title: 'Kasentra',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorSchemeSeed: Colors.green,
-          scaffoldBackgroundColor: Colors.white,
-        ),
-        home: const LoginPage(),
-      );
-    }
 
     return MaterialApp(
       title: 'Kasentra',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.green,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: currentUser.role == UserRole.pending
-          ? OnboardingPage(user: currentUser)
-          : currentUser.role == UserRole.owner
-              ? DashboardPage(user: currentUser)
-              : const KaryawanDashboardPage(),
+      theme: AppTheme.light,
+      home: currentUser == null
+          ? const LoginPage()
+          : _buildHome(currentUser),
     );
   }
 }
-
-

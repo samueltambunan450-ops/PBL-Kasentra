@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="p1_3312411040"
+        android:label="Kasentra"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

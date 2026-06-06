@@ -1,14 +1,20 @@
+import 'package:flutter/material.dart';
+
 class Cabang {
   final String id;
   final String nama;
   final String alamat;
   final double modalAwal; // Modal awal usaha untuk cabang ini (F007)
+  final String? jamBuka;
+  final String? jamTutup;
 
   Cabang({
     required this.id,
     required this.nama,
     required this.alamat,
     required this.modalAwal,
+    this.jamBuka,
+    this.jamTutup,
   });
 
   // Factory untuk membuat Cabang dari JSON response API
@@ -18,6 +24,8 @@ class Cabang {
       nama: (json['nama'] ?? '').toString(),
       alamat: (json['alamat'] ?? '').toString(),
       modalAwal: double.tryParse(json['modal_awal'].toString()) ?? 0,
+      jamBuka: json['jam_buka']?.toString(),
+      jamTutup: json['jam_tutup']?.toString(),
     );
   }
 
@@ -28,12 +36,21 @@ class Cabang {
       nama: map['nama'],
       alamat: map['alamat'],
       modalAwal: map['modalAwal'] ?? 0.0,
+      jamBuka: map['jam_buka']?.toString() ?? map['jamBuka']?.toString(),
+      jamTutup: map['jam_tutup']?.toString() ?? map['jamTutup']?.toString(),
     );
   }
 
   // Method untuk mengubah Cabang ke Map (untuk database)
   Map<String, dynamic> toMap() {
-    return {'id': id, 'nama': nama, 'alamat': alamat, 'modalAwal': modalAwal};
+    return {
+      'id': id,
+      'nama': nama,
+      'alamat': alamat,
+      'modalAwal': modalAwal,
+      'jamBuka': jamBuka,
+      'jamTutup': jamTutup,
+    };
   }
 
   // CopyWith untuk update
@@ -42,12 +59,36 @@ class Cabang {
     String? nama,
     String? alamat,
     double? modalAwal,
+    String? jamBuka,
+    String? jamTutup,
   }) {
     return Cabang(
       id: id ?? this.id,
       nama: nama ?? this.nama,
       alamat: alamat ?? this.alamat,
       modalAwal: modalAwal ?? this.modalAwal,
+      jamBuka: jamBuka ?? this.jamBuka,
+      jamTutup: jamTutup ?? this.jamTutup,
+    );
+  }
+
+  bool get isOpen {
+    if (jamBuka == null || jamTutup == null) return true;
+    final now = TimeOfDay.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+    final buka = _parseTime(jamBuka!);
+    final tutup = _parseTime(jamTutup!);
+    if (buka == null || tutup == null) return true;
+    return nowMinutes >= (buka.hour * 60 + buka.minute) &&
+        nowMinutes <= (tutup.hour * 60 + tutup.minute);
+  }
+
+  TimeOfDay? _parseTime(String time) {
+    final parts = time.split(':');
+    if (parts.length < 2) return null;
+    return TimeOfDay(
+      hour: int.tryParse(parts[0]) ?? 0,
+      minute: int.tryParse(parts[1]) ?? 0,
     );
   }
 }
