@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe KASENTRA — Aplikasi Pembukuan UMKM</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f0f0f0;
+      color: #111;
+      padding: 32px 24px 64px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #555;
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #111;
+      padding-bottom: 6px;
+      margin: 48px 0 24px;
+    }
+
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 32px;
+      justify-content: center;
+    }
+
+    /* ── Phone frame ── */
+    .phone-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .phone-label {
+      font-size: 0.78rem;
+      font-weight: bold;
+      text-align: center;
+      max-width: 240px;
+      line-height: 1.3;
+    }
+
+    .phone {
+      width: 240px;
+      height: 480px;
+      border: 3px solid #111;
+      border-radius: 28px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* status bar */
+    .status-bar {
+      height: 22px;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 8px;
+      color: #444;
+      flex-shrink: 0;
+    }
+
+    /* app bar */
+    .app-bar {
+      height: 40px;
+      border-bottom: 2px solid #111;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      flex-shrink: 0;
+      background: #fff;
+    }
+
+    .app-bar .back { font-size: 14px; }
+    .app-bar .title { font-size: 11px; font-weight: bold; flex: 1; }
+
+    /* scrollable body */
+    .screen-body {
+      flex: 1;
+      overflow: hidden;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* bottom nav */
+    .bottom-nav {
+      height: 48px;
+      border-top: 2px solid #111;
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border-right: 1px solid #ccc;
+      font-size: 7px;
+      color: #555;
+    }
+
+    .nav-item:last-child { border-right: none; }
+    .nav-item.active { background: #e8e8e8; font-weight: bold; color: #111; }
+
+    .nav-icon {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid #111;
+      border-radius: 3px;
+    }
+
+    .nav-icon.circle {
+      border-radius: 50%;
+      background: #111;
+    }
+
+    /* ── Wireframe components ── */
+    .logo-box {
+      width: 56px;
+      height: 56px;
+      border: 2px solid #111;
+      border-radius: 12px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .heading { font-size: 13px; font-weight: bold; text-align: center; }
+    .subtext { font-size: 8px; color: #555; text-align: center; line-height: 1.4; }
+
+    .btn {
+      border: 2px solid #111;
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: bold;
+      background: #fff;
+    }
+
+    .btn.filled { background: #111; color: #fff; }
+
+    .input {
+      border: 1.5px solid #111;
+      border-radius: 5px;
+      padding: 7px 8px;
+      font-size: 8px;
+      color: #888;
+      background: #fafafa;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 8px;
+      color: #888;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #aaa;
+    }
+
+    .card {
+      border: 1.5px solid #111;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+    }
+
+    .stat-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .stat-card {
+      flex: 1;
+      border: 1.5px solid #111;
+      border-radius: 6px;
+      padding: 6px;
+      text-align: center;
+    }
+
+    .stat-card .label { font-size: 7px; color: #555; }
+    .stat-card .value { font-size: 9px; font-weight: bold; margin-top: 2px; }
+
+    .filter-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .chip {
+      border: 1px solid #111;
+      border-radius: 10px;
+      padding: 3px 7px;
+      font-size: 7px;
+      white-space: nowrap;
+    }
+
+    .chip.active { background: #111; color: #fff; }
+
+    .chart-box {
+      border: 1.5px solid #111;
+      border-radius: 6px;
+      height: 80px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .chart-box svg { width: 100%; height: 100%; }
+
+    .list-item {
+      border: 1px solid #aaa;
+      border-radius: 5px;
+      padding: 6px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+    }
+
+    .list-item .left { display: flex; flex-direction: column; gap: 2px; }
+    .list-item .amount { font-weight: bold; }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border: 2px solid #111;
+      border-radius: 50%;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid #ddd;
+      font-size: 9px;
+    }
+
+    .menu-item:last-child { border-bottom: none; }
+
+    .menu-icon {
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid #111;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .menu-arrow { margin-left: auto; font-size: 10px; color: #888; }
+
+    .toggle-row {
+      display: flex;
+      border: 1.5px solid #111;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      font-size: 8px;
+      border-right: 1px solid #111;
+    }
+
+    .toggle-btn:last-child { border-right: none; }
+    .toggle-btn.active { background: #111; color: #fff; }
+
+    .img-placeholder {
+      border: 1.5px dashed #888;
+      border-radius: 6px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #888;
+    }
+
+    .spacer { flex: 1; }
+
+  </style>
+</head>
+<body>
+
+  <h1>WIREFRAME APLIKASI KASENTRA</h1>
+  <p class="subtitle">Sistem Informasi Pembukuan UMKM Sego Pecel Mas Tyo — Desain Hitam Putih</p>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <p class="section-title">A. Autentikasi &amp; Onboarding</p>
+  <div class="grid">
+
+    <!-- 1. Login -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="screen-body" style="justify-content:center; gap:14px;">
+          <div class="logo-box">LOGO</div>
+          <div>
+            <div class="heading">KASENTRA</div>
+            <div class="subtext" style="margin-top:6px;">Kelola keuangan usaha multi-cabang dengan mudah</div>
+          </div>
+          <div class="img-placeholder" style="height:70px; border-style:solid;">
+            [ Ilustrasi / Banner ]
+          </div>
+          <div class="btn filled" style="display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span style="font-size:12px;">G</span> Masuk dengan Google
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 1 — Halaman Login</div>
+    </div>
+
+    <!-- 2. Onboarding -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Selamat Datang</span></div>
+        <div class="screen-body">
+          <div class="card" style="flex:1; display:flex; flex-direction:column; gap:10px; justify-content:center;">
+            <div class="heading">Selamat Datang</div>
+            <div class="subtext">Masukkan kode undangan dari pemilik usaha, atau buat usaha baru jika Anda pemilik.</div>
+            <div class="input">Kode Undangan</div>
+            <div class="btn filled">Gabung sebagai Karyawan</div>
+            <div class="divider">atau</div>
+            <div class="btn">Buat Usaha Baru</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 2 — Halaman Onboarding</div>
+    </div>
+
+    <!-- 3. Setup Business -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="back">←</span><span class="title">Buat Usaha Baru</span></div>
+        <div class="screen-body">
+          <div class="subtext" style="text-align:left;">Lengkapi data usaha Anda untuk memulai.</div>
+          <div class="input">Nama Usaha</div>
+          <div class="input">Jenis Usaha ▼</div>
+          <div class="input">Nama Cabang Pertama</div>
+          <div class="spacer"></div>
+          <div class="btn filled">Simpan &amp; Lanjutkan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 3 — Setup Usaha (Owner)</div>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <p class="section-title">B. Dashboard Owner (Pemilik)</p>
+  <div class="grid">
+
+    <!-- 4. Home -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="screen-body">
+          <div style="font-size:10px; font-weight:bold;">Dashboard</div>
+          <div class="input" style="font-size:7px;">Filter Cabang ▼</div>
+          <div class="filter-row">
+            <div class="chip">Hari ini</div>
+            <div class="chip">Minggu ini</div>
+            <div class="chip active">Bulan ini</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-card"><div class="label">Pemasukan</div><div class="value">Rp 5.2jt</div></div>
+            <div class="stat-card"><div class="label">Pengeluaran</div><div class="value">Rp 2.1jt</div></div>
+          </div>
+          <div class="stat-card" style="text-align:center;">
+            <div class="label">Saldo Saat Ini</div>
+            <div class="value" style="font-size:11px;">Rp 8.750.000</div>
+          </div>
+          <div style="font-size:8px; font-weight:bold;">Grafik Performa</div>
+          <div class="chart-box">
+            <svg viewBox="0 0 200 80" preserveAspectRatio="none">
+              <line x1="0" y1="70" x2="200" y2="70" stroke="#aaa" stroke-width="1"/>
+              <polyline points="10,60 40,45 70,50 100,30 130,35 160,20 190,25" fill="none" stroke="#111" stroke-width="2"/>
+              <polyline points="10,65 40,55 70,58 100,50 130,48 160,42 190,40" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+            </svg>
+          </div>
+          <div style="font-size:8px; font-weight:bold;">Transaksi Terbaru</div>
+          <div class="list-item"><div class="left"><span>Penjualan Harian</span><span style="color:#888;">10 Jun · Cabang 1</span></div><span class="amount">+Rp 350rb</span></div>
+          <div class="list-item"><div class="left"><span>Bahan Baku</span><span style="color:#888;">9 Jun · Cabang 1</span></div><span class="amount">-Rp 120rb</span></div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item"><div class="nav-icon"></div>Riwayat</div>
+          <div class="nav-item"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Profil</div>
+          <div class="nav-item"><div class="nav-icon"></div>Laporan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 4 — Home Dashboard (Owner)</div>
+    </div>
+
+    <!-- 5. Riwayat -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Riwayat Transaksi</span></div>
+        <div class="screen-body">
+          <div class="filter-row">
+            <div class="chip">Hari ini</div>
+            <div class="chip">Minggu ini</div>
+            <div class="chip active">Bulan ini</div>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Penjualan Harian</span><span style="color:#888;">Pemasukan · 10 Jun 2026</span></div>
+            <div style="text-align:right;"><div class="amount">+Rp 350.000</div><span style="font-size:7px; color:#888;">✎ 🗑</span></div>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Beli Sayuran</span><span style="color:#888;">Pengeluaran · 9 Jun 2026</span></div>
+            <div style="text-align:right;"><div class="amount">-Rp 85.000</div><span style="font-size:7px; color:#888;">✎ 🗑</span></div>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Gaji Karyawan</span><span style="color:#888;">Pengeluaran · 5 Jun 2026</span></div>
+            <div style="text-align:right;"><div class="amount">-Rp 500.000</div><span style="font-size:7px; color:#888;">✎ 🗑</span></div>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Penjualan Harian</span><span style="color:#888;">Pemasukan · 4 Jun 2026</span></div>
+            <div style="text-align:right;"><div class="amount">+Rp 420.000</div><span style="font-size:7px; color:#888;">✎ 🗑</span></div>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Bumbu &amp; Bahan</span><span style="color:#888;">Pengeluaran · 3 Jun 2026</span></div>
+            <div style="text-align:right;"><div class="amount">-Rp 65.000</div><span style="font-size:7px; color:#888;">✎ 🗑</span></div>
+          </div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item active"><div class="nav-icon"></div>Riwayat</div>
+          <div class="nav-item"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Profil</div>
+          <div class="nav-item"><div class="nav-icon"></div>Laporan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 5 — Riwayat Transaksi</div>
+    </div>
+
+    <!-- 6. Tambah Transaksi -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Tambah Transaksi</span></div>
+        <div class="screen-body">
+          <div class="toggle-row">
+            <div class="toggle-btn active">Pemasukan</div>
+            <div class="toggle-btn">Pengeluaran</div>
+          </div>
+          <div class="input">Nominal (Rp)</div>
+          <div class="input">Tanggal ▼</div>
+          <div class="input">Cabang ▼</div>
+          <div class="input">Kategori ▼</div>
+          <div class="input" style="height:36px;">Keterangan</div>
+          <div class="img-placeholder">+ Upload Bukti Transaksi</div>
+          <div class="spacer"></div>
+          <div class="btn filled">Simpan Transaksi</div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item"><div class="nav-icon"></div>Riwayat</div>
+          <div class="nav-item active"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Profil</div>
+          <div class="nav-item"><div class="nav-icon"></div>Laporan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 6 — Tambah Transaksi</div>
+    </div>
+
+    <!-- 7. Laporan -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Laporan Keuangan</span></div>
+        <div class="screen-body">
+          <div class="input" style="font-size:7px;">Cabang ▼</div>
+          <div class="filter-row">
+            <div class="chip active">Bulanan</div>
+            <div class="chip">Mingguan</div>
+            <div class="chip">Kustom</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-card"><div class="label">Total Masuk</div><div class="value">Rp 15jt</div></div>
+            <div class="stat-card"><div class="label">Total Keluar</div><div class="value">Rp 8jt</div></div>
+          </div>
+          <div class="stat-card" style="text-align:center;">
+            <div class="label">Laba Bersih</div>
+            <div class="value" style="font-size:11px;">Rp 7.000.000</div>
+          </div>
+          <div style="font-size:8px; font-weight:bold;">Grafik Pemasukan vs Pengeluaran</div>
+          <div class="chart-box" style="height:90px;">
+            <svg viewBox="0 0 200 90" preserveAspectRatio="none">
+              <rect x="20" y="50" width="25" height="35" fill="#111"/>
+              <rect x="55" y="30" width="25" height="55" fill="#888"/>
+              <rect x="90" y="40" width="25" height="45" fill="#111"/>
+              <rect x="125" y="20" width="25" height="65" fill="#888"/>
+              <rect x="160" y="35" width="25" height="50" fill="#111"/>
+              <line x1="0" y1="85" x2="200" y2="85" stroke="#aaa"/>
+            </svg>
+          </div>
+          <div style="font-size:7px; color:#888; text-align:center;">■ Pemasukan &nbsp; ■ Pengeluaran</div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item"><div class="nav-icon"></div>Riwayat</div>
+          <div class="nav-item"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Profil</div>
+          <div class="nav-item active"><div class="nav-icon"></div>Laporan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 7 — Laporan Keuangan (Owner)</div>
+    </div>
+
+    <!-- 8. Profil Owner -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Profil</span></div>
+        <div class="screen-body">
+          <div class="card" style="text-align:center; padding:14px;">
+            <div class="avatar">👤</div>
+            <div style="font-size:10px; font-weight:bold; margin-top:6px;">Budi Santoso</div>
+            <div style="font-size:8px; color:#555;">budi@gmail.com</div>
+            <div class="chip active" style="display:inline-block; margin-top:6px;">Pemilik Usaha</div>
+          </div>
+          <div class="card" style="padding:0;">
+            <div class="menu-item"><div class="menu-icon"></div>Kelola Cabang<span class="menu-arrow">›</span></div>
+            <div class="menu-item"><div class="menu-icon"></div>Kelola Karyawan<span class="menu-arrow">›</span></div>
+            <div class="menu-item"><div class="menu-icon"></div>Kelola Kategori<span class="menu-arrow">›</span></div>
+            <div class="menu-item"><div class="menu-icon"></div>Logout<span class="menu-arrow">›</span></div>
+          </div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item"><div class="nav-icon"></div>Riwayat</div>
+          <div class="nav-item"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item active"><div class="nav-icon"></div>Profil</div>
+          <div class="nav-item"><div class="nav-icon"></div>Laporan</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 8 — Profil (Owner)</div>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <p class="section-title">C. Manajemen Data (Owner)</p>
+  <div class="grid">
+
+    <!-- 9. Kelola Cabang -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="back">←</span><span class="title">Kelola Cabang</span><span style="font-size:14px;">+</span></div>
+        <div class="screen-body">
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Cabang Pusat</span><span style="color:#888;">Jl. Raya No. 10</span></div>
+            <span style="font-size:8px;">✎ 🗑</span>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Cabang 2</span><span style="color:#888;">Jl. Merdeka No. 5</span></div>
+            <span style="font-size:8px;">✎ 🗑</span>
+          </div>
+          <div class="card" style="margin-top:4px;">
+            <div style="font-size:8px; font-weight:bold; margin-bottom:6px;">Tambah / Edit Cabang</div>
+            <div class="input">Nama Cabang</div>
+            <div class="input" style="margin-top:4px;">Alamat</div>
+            <div class="input" style="margin-top:4px;">Modal Awal (Rp)</div>
+            <div class="input" style="margin-top:4px;">Jam Operasional</div>
+            <div class="btn filled" style="margin-top:6px;">Simpan</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 9 — Kelola Cabang</div>
+    </div>
+
+    <!-- 10. Kelola Karyawan -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="back">←</span><span class="title">Kelola Karyawan</span></div>
+        <div class="screen-body">
+          <div class="btn" style="font-size:8px;">🔗 Buat Kode Undangan</div>
+          <div class="list-item" style="margin-top:4px;">
+            <div class="left"><span style="font-weight:bold;">Andi Wijaya</span><span style="color:#888;">andi@gmail.com · Cabang Pusat</span></div>
+            <span style="font-size:8px;">🗑</span>
+          </div>
+          <div class="list-item">
+            <div class="left"><span style="font-weight:bold;">Siti Rahayu</span><span style="color:#888;">siti@gmail.com · Cabang 2</span></div>
+            <span style="font-size:8px;">🗑</span>
+          </div>
+          <div class="card" style="margin-top:4px;">
+            <div style="font-size:8px; font-weight:bold; margin-bottom:6px;">Kode Undangan Aktif</div>
+            <div style="font-size:11px; font-weight:bold; text-align:center; letter-spacing:3px; border:1.5px dashed #111; padding:8px;">KSN-4X9Z</div>
+            <div class="subtext" style="margin-top:4px;">Berlaku 24 jam · Bagikan ke karyawan baru</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 10 — Kelola Karyawan</div>
+    </div>
+
+    <!-- 11. Kelola Kategori -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="back">←</span><span class="title">Kelola Kategori</span><span style="font-size:14px;">+</span></div>
+        <div class="screen-body">
+          <div style="font-size:8px; font-weight:bold; color:#555;">PEMASUKAN</div>
+          <div class="list-item"><span>Penjualan Harian</span><span style="font-size:8px;">✎ 🗑</span></div>
+          <div class="list-item"><span>Penjualan Online</span><span style="font-size:8px;">✎ 🗑</span></div>
+          <div style="font-size:8px; font-weight:bold; color:#555; margin-top:4px;">PENGELUARAN</div>
+          <div class="list-item"><span>Bahan Baku</span><span style="font-size:8px;">✎ 🗑</span></div>
+          <div class="list-item"><span>Gaji Karyawan</span><span style="font-size:8px;">✎ 🗑</span></div>
+          <div class="list-item"><span>Operasional</span><span style="font-size:8px;">✎ 🗑</span></div>
+          <div class="card" style="margin-top:4px;">
+            <div class="input">Nama Kategori Baru</div>
+            <div class="input" style="margin-top:4px;">Jenis ▼</div>
+            <div class="btn filled" style="margin-top:6px;">Tambah Kategori</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 11 — Kelola Kategori</div>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════════════════════════ -->
+  <p class="section-title">D. Dashboard Karyawan</p>
+  <div class="grid">
+
+    <!-- 12. Karyawan Home -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="screen-body">
+          <div style="font-size:10px; font-weight:bold;">Halo, Andi 👋</div>
+          <div style="font-size:8px; color:#555;">Cabang Pusat · Karyawan</div>
+          <div class="stat-row" style="margin-top:4px;">
+            <div class="stat-card"><div class="label">Pengeluaran Hari Ini</div><div class="value">Rp 320rb</div></div>
+          </div>
+          <div style="font-size:8px; font-weight:bold; margin-top:4px;">Riwayat Pengeluaran</div>
+          <div class="list-item"><div class="left"><span>Beli Sayuran</span><span style="color:#888;">10 Jun 2026</span></div><span class="amount">-Rp 85rb</span></div>
+          <div class="list-item"><div class="left"><span>Bumbu Pecel</span><span style="color:#888;">10 Jun 2026</span></div><span class="amount">-Rp 45rb</span></div>
+          <div class="list-item"><div class="left"><span>Gas &amp; Listrik</span><span style="color:#888;">9 Jun 2026</span></div><span class="amount">-Rp 120rb</span></div>
+          <div class="spacer"></div>
+          <div class="btn filled">+ Catat Pengeluaran</div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Logout</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 12 — Dashboard Karyawan</div>
+    </div>
+
+    <!-- 13. Karyawan Tambah Pengeluaran -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+        <div class="app-bar"><span class="title">Catat Pengeluaran</span></div>
+        <div class="screen-body">
+          <div style="font-size:8px; color:#555; border:1px dashed #aaa; padding:5px; border-radius:4px;">
+            ℹ Karyawan hanya dapat mencatat pengeluaran selama jam operasional cabang.
+          </div>
+          <div class="input">Nominal (Rp)</div>
+          <div class="input">Tanggal ▼</div>
+          <div class="input">Kategori ▼</div>
+          <div class="input" style="height:36px;">Keterangan</div>
+          <div class="img-placeholder">+ Upload Bukti</div>
+          <div class="spacer"></div>
+          <div class="btn filled">Simpan Pengeluaran</div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon"></div>Home</div>
+          <div class="nav-item active"><div class="nav-icon circle"></div>Tambah</div>
+          <div class="nav-item"><div class="nav-icon"></div>Logout</div>
+        </div>
+      </div>
+      <div class="phone-label">Gambar 13 — Catat Pengeluaran (Karyawan)</div>
+    </div>
+
+  </div>
+
+</body>
+</html>

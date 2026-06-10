@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/transaksi.dart';
 import '../models/user.dart';
 import '../services/domain_api_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/adaptive_dashboard_scaffold.dart';
+import '../widgets/kasentra_bottom_nav.dart';
 import 'add_transaction_page.dart';
 import 'home_page.dart';
 import 'history_page.dart';
@@ -77,6 +77,43 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  List<KasentraNavDestination> _buildDestinations() {
+    final destinations = <KasentraNavDestination>[
+      const KasentraNavDestination(
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
+        label: 'Home',
+      ),
+      const KasentraNavDestination(
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+        label: 'Riwayat',
+      ),
+      const KasentraNavDestination(
+        icon: Icons.add,
+        selectedIcon: Icons.add,
+        label: 'Transaksi',
+      ),
+      const KasentraNavDestination(
+        icon: Icons.person_outline,
+        selectedIcon: Icons.person,
+        label: 'Profil',
+      ),
+    ];
+
+    if (widget.user.role == UserRole.owner) {
+      destinations.add(
+        const KasentraNavDestination(
+          icon: Icons.bar_chart_outlined,
+          selectedIcon: Icons.bar_chart,
+          label: 'Laporan',
+        ),
+      );
+    }
+
+    return destinations;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -107,57 +144,12 @@ class _DashboardPageState extends State<DashboardPage> {
       pages.add(FinancialReportPage(transaksi: _transaksi));
     }
 
-    final destinations = <NavigationDestination>[
-      const NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home, color: AppColors.primary),
-        label: "Home",
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.list_alt_outlined),
-        selectedIcon: Icon(Icons.list_alt, color: AppColors.primary),
-        label: "Riwayat",
-      ),
-      NavigationDestination(
-        icon: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(Icons.add, color: Colors.white, size: 20),
-        ),
-        selectedIcon: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(Icons.add, color: Colors.white, size: 20),
-        ),
-        label: "Tambah",
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        selectedIcon: Icon(Icons.person, color: AppColors.primary),
-        label: "Profil",
-      ),
-    ];
-    if (widget.user.role == UserRole.owner) {
-      destinations.add(
-        const NavigationDestination(
-          icon: Icon(Icons.bar_chart_outlined),
-          selectedIcon: Icon(Icons.bar_chart, color: AppColors.primary),
-          label: "Laporan",
-        ),
-      );
-    }
-
     return AdaptiveDashboardScaffold(
       currentIndex: currentIndex,
       onDestinationSelected: (i) => setState(() => currentIndex = i),
       pages: pages,
-      destinations: destinations,
+      destinations: _buildDestinations(),
+      fabIndex: 2,
     );
   }
 }

@@ -1,129 +1,94 @@
 import 'package:flutter/material.dart';
 
 import '../models/user.dart';
-import '../services/auth_service.dart';
-import '../services/domain_api_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
-import 'dashboard_page.dart';
+import '../widgets/kasentra_logo.dart';
+import '../widgets/kasentra_option_card.dart';
+import 'join_business_page.dart';
 import 'setup_business_page.dart';
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends StatelessWidget {
   final AppUser user;
 
   const OnboardingPage({super.key, required this.user});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
-}
-
-class _OnboardingPageState extends State<OnboardingPage> {
-  final TextEditingController _codeController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _joinWithCode() async {
-    if (_codeController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masukkan kode undangan terlebih dahulu.')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final user = await DomainApiService.validateInvitation(_codeController.text.trim());
-      await AuthService.updateCurrentUser(user);
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => DashboardPage(user: user)),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kode salah atau kadaluarsa. $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _createBusiness() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => SetupBusinessPage(user: widget.user)),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isWide = !Responsive.isMobile(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Selamat Datang')),
+      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: Responsive.pagePadding(context),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: Responsive.formMaxWidth(context)),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Selamat Datang',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Masukkan kode undangan dari pemilik usaha, atau buat usaha baru jika Anda pemilik.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      TextField(
-                        controller: _codeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Kode Undangan',
-                          prefixIcon: Icon(Icons.vpn_key_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _isLoading ? null : _joinWithCode,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('Gabung sebagai Karyawan'),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(child: Divider(color: Colors.grey.shade300)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('atau', style: TextStyle(color: Colors.grey.shade600)),
-                          ),
-                          Expanded(child: Divider(color: Colors.grey.shade300)),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      OutlinedButton(
-                        onPressed: _createBusiness,
-                        child: const Text('Buat Usaha Baru'),
-                      ),
-                    ],
+              constraints: BoxConstraints(maxWidth: isWide ? 700 : Responsive.formMaxWidth(context)),
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  const KasentraLogo(size: 72),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Selamat Datang!',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Pilih cara Anda ingin memulai di KASENTRA',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+                  ),
+                  const SizedBox(height: 32),
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _buildJoinCard(context)),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildCreateCard(context)),
+                      ],
+                    )
+                  else ...[
+                    _buildJoinCard(context),
+                    const SizedBox(height: 16),
+                    _buildCreateCard(context),
+                  ],
+                ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildJoinCard(BuildContext context) {
+    return KasentraOptionCard(
+      icon: Icons.person_outline,
+      title: 'Gabung sebagai Karyawan',
+      subtitle: 'Masukkan kode undangan dari pemilik usaha',
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => JoinBusinessPage(user: user)),
+        );
+      },
+    );
+  }
+
+  Widget _buildCreateCard(BuildContext context) {
+    return KasentraOptionCard(
+      icon: Icons.store_outlined,
+      title: 'Buat Usaha Baru',
+      subtitle: 'Daftarkan usaha Anda sebagai pemilik',
+      onTap: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => SetupBusinessPage(user: user)),
+        );
+      },
     );
   }
 }

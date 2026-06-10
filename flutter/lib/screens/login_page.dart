@@ -5,7 +5,7 @@ import '../screens/dashboard_page.dart';
 import '../screens/onboarding_page.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../utils/responsive.dart';
+import '../widgets/kasentra_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -56,148 +56,118 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = Responsive.isDesktop(context);
-
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: Responsive.pagePadding(context),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isWide ? 900 : Responsive.formMaxWidth(context)),
-              child: isWide ? _buildWideLayout(context) : _buildCompactLayout(context),
+      body: Column(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryDark, AppColors.primary, AppColors.primaryLight],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Center(
+                  child: KasentraLogo(
+                    size: 88,
+                    textColor: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWideLayout(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primaryDark, AppColors.primaryLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.account_balance_wallet, size: 72, color: Colors.white),
-                const SizedBox(height: 24),
-                Text(
-                  "KASENTRA",
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+          Expanded(
+            flex: 6,
+            child: Container(
+              width: double.infinity,
+              color: Colors.white,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.phone_android_rounded,
+                          size: 56,
+                          color: AppColors.primary.withValues(alpha: 0.7),
+                        ),
                       ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Kelola keuangan usaha multi-cabang dengan mudah. Pantau pemasukan, pengeluaran, dan laporan keuangan secara real-time.",
-                  style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.5),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(child: _buildLoginCard(context)),
-      ],
-    );
-  }
-
-  Widget _buildCompactLayout(BuildContext context) {
-    return _buildLoginCard(context);
-  }
-
-  Widget _buildLoginCard(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!Responsive.isDesktop(context)) ...[
-              const Icon(Icons.account_balance_wallet, size: 64, color: AppColors.primary),
-              const SizedBox(height: 16),
-              Text(
-                "KASENTRA",
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Kelola keuangan usaha lebih mudah",
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-            ] else ...[
-              Text(
-                "Masuk ke akun",
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text("Gunakan akun Google untuk melanjutkan", style: TextStyle(color: Colors.grey.shade600)),
-              const SizedBox(height: 32),
-            ],
-            SizedBox(
-              height: 48,
-              child: OutlinedButton(
-                onPressed: _isLoading ? null : _loginWithGoogle,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.grey.shade300),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'G',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF4285F4),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Selamat Datang',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Kelola keuangan usaha multi-cabang dengan mudah',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : _loginWithGoogle,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.grey.shade300),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          'G',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF4285F4),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'Masuk dengan Google',
+                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Masuk dengan Google',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                        ),
                       ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

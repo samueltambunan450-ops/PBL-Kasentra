@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const primary = Color(0xFF2E7D32);
-  static const primaryDark = Color(0xFF1B5E20);
-  static const primaryLight = Color(0xFF4CAF50);
-  static const surface = Color(0xFFF5F7FA);
-  static const income = Color(0xFF2E7D32);
-  static const expense = Color(0xFFD32F2F);
+  static const primary = Color(0xFF1F8B4C);
+  static const primaryDark = Color(0xFF156B3A);
+  static const primaryLight = Color(0xFF34A853);
+  static const surface = Color(0xFFF4F6F8);
+  static const income = Color(0xFF1F8B4C);
+  static const expense = Color(0xFFE53935);
 }
 
 class AppTheme {

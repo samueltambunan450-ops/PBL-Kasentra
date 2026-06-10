@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'firebase_options.dart';
 import 'screens/login_page.dart';
 import 'screens/dashboard_page.dart';
-import 'screens/karyawan/karyawan_dashboard_page.dart';
 import 'screens/onboarding_page.dart';
 import 'services/auth_service.dart';
 import 'models/user.dart';
@@ -34,7 +33,7 @@ class KasentraApp extends StatelessWidget {
     if (currentUser.role == UserRole.owner) {
       return DashboardPage(user: currentUser);
     }
-    return const KaryawanDashboardPage();
+    return DashboardPage(user: currentUser);
   }
 
   @override

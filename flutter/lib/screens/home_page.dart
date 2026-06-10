@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/domain_api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
+import '../widgets/kasentra_dashboard_filters.dart';
 import '../widgets/stat_card.dart';
 
 class HomePage extends StatefulWidget {
@@ -33,6 +34,16 @@ class _HomePageState extends State<HomePage> {
   String? _selectedCabangId;
   List<Cabang> _cabangs = [];
 
+  // Cache hasil perhitungan agar build tidak berat (terutama di web/tablet)
+  List<Transaksi> _filtered = const [];
+  int _totalMasuk = 0;
+  int _totalKeluar = 0;
+  double _modalAwalCached = 0;
+  Map<String, Map<String, int>> _chartData = const {};
+  List<String> _chartDates = const [];
+  List<int> _chartPemasukan = const [];
+  List<int> _chartPengeluaran = const [];
+
   @override
   void initState() {
     super.initState();
@@ -51,9 +62,32 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {}
   }
 
-  List<Transaksi> get _filtered {
+  double get modalAwal => _modalAwalCached;
+  int get totalMasuk => _totalMasuk;
+  int get totalKeluar => _totalKeluar;
+
+  double get saldoSaatIni => modalAwal + _totalMasuk - _totalKeluar;
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // widget.transaksi berubah (di-update dari parent) atau role berubah => recompute
+    if (oldWidget.transaksi != widget.transaksi ||
+        oldWidget.role != widget.role) {
+      _recompute();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // in case MediaQuery changes doesn't affect calculation; no-op
+  }
+
+  void _recompute() {
     final now = DateTime.now();
-    return widget.transaksi.where((t) {
+
+    final newFiltered = widget.transaksi.where((t) {
       if (_selectedCabangId != null && t.cabangId != _selectedCabangId) {
         return false;
       }
@@ -70,32 +104,26 @@ class _HomePageState extends State<HomePage> {
           return t.tanggal.year == now.year && t.tanggal.month == now.month;
       }
     }).toList();
-  }
 
-  int get totalMasuk => _filtered
-      .where((t) => t.jenis == TransaksiJenis.pemasukan)
-      .fold(0, (sum, t) => sum + t.nominal);
+    final totalMasuk = newFiltered
+        .where((t) => t.jenis == TransaksiJenis.pemasukan)
+        .fold(0, (sum, t) => sum + t.nominal);
+    final totalKeluar = newFiltered
+        .where((t) => t.jenis == TransaksiJenis.pengeluaran)
+        .fold(0, (sum, t) => sum + t.nominal);
 
-  int get totalKeluar => _filtered
-      .where((t) => t.jenis == TransaksiJenis.pengeluaran)
-      .fold(0, (sum, t) => sum + t.nominal);
+    final modalAwal = _selectedCabangId == null
+        ? _cabangs.fold(0.0, (sum, c) => sum + c.modalAwal)
+        : _cabangs
+              .firstWhere(
+                (c) => c.id == _selectedCabangId,
+                orElse: () =>
+                    Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
+              )
+              .modalAwal;
 
-  double get modalAwal {
-    if (_selectedCabangId == null) {
-      return _cabangs.fold(0.0, (sum, c) => sum + c.modalAwal);
-    }
-    final cabang = _cabangs.firstWhere(
-      (c) => c.id == _selectedCabangId,
-      orElse: () => Cabang(id: '', nama: '', alamat: '', modalAwal: 0),
-    );
-    return cabang.modalAwal;
-  }
-
-  double get saldoSaatIni => modalAwal + totalMasuk - totalKeluar;
-
-  Map<String, Map<String, int>> get _chartData {
     final Map<String, Map<String, int>> data = {};
-    for (final t in _filtered) {
+    for (final t in newFiltered) {
       final key = "${t.tanggal.day}/${t.tanggal.month}";
       data.putIfAbsent(key, () => {'masuk': 0, 'keluar': 0});
       if (t.jenis == TransaksiJenis.pemasukan) {
@@ -104,11 +132,8 @@ class _HomePageState extends State<HomePage> {
         data[key]!['keluar'] = data[key]!['keluar']! + t.nominal;
       }
     }
-    return data;
-  }
 
-  List<String> get _chartDates {
-    final dates = _chartData.keys.toList();
+    final dates = data.keys.toList();
     dates.sort((a, b) {
       final aParts = a.split('/');
       final bParts = b.split('/');
@@ -117,43 +142,52 @@ class _HomePageState extends State<HomePage> {
       if (aMonth != bMonth) return aMonth.compareTo(bMonth);
       return int.parse(aParts[0]).compareTo(int.parse(bParts[0]));
     });
-    return dates;
+
+    final chartPemasukan = dates.map((d) => data[d]!['masuk'] ?? 0).toList();
+    final chartPengeluaran = dates.map((d) => data[d]!['keluar'] ?? 0).toList();
+
+    setState(() {
+      _filtered = newFiltered;
+      _totalMasuk = totalMasuk;
+      _totalKeluar = totalKeluar;
+      _modalAwalCached = modalAwal;
+      _chartData = data;
+      _chartDates = dates;
+      _chartPemasukan = chartPemasukan;
+      _chartPengeluaran = chartPengeluaran;
+    });
   }
 
-  List<int> get _chartPemasukan =>
-      _chartDates.map((d) => _chartData[d]!['masuk'] ?? 0).toList();
+  // format rupiah tetap ada di bawah
 
-  List<int> get _chartPengeluaran =>
-      _chartDates.map((d) => _chartData[d]!['keluar'] ?? 0).toList();
-
-  String _formatRupiah(num value) =>
-      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
-          .format(value);
+  String _formatRupiah(num value) => NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  ).format(value);
 
   String _namaBulan(int bulan) {
     const nama = [
-      "", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+      "",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
     ];
     return nama[bulan];
-  }
-
-  String _periodeLabel(PeriodeFilter f) {
-    switch (f) {
-      case PeriodeFilter.hariIni:
-        return "Hari ini";
-      case PeriodeFilter.mingguIni:
-        return "Minggu ini";
-      case PeriodeFilter.bulanIni:
-        return "Bulan ini";
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isWide = !Responsive.isMobile(context);
-    final columns = Responsive.gridColumns(context, mobile: 1, tablet: 2, desktop: 2);
-
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: SafeArea(
@@ -170,9 +204,14 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Halo, ${AuthService.currentUser?.nama.split(' ').first ?? 'Pengguna'}",
+                            "Halo, ${AuthService.currentUser?.nama.split(' ').first ?? 'Pengguna'} 👋",
                             style: TextStyle(
-                              fontSize: Responsive.value(context, mobile: 22.0, tablet: 26.0, desktop: 28.0),
+                              fontSize: Responsive.value(
+                                context,
+                                mobile: 22.0,
+                                tablet: 26.0,
+                                desktop: 28.0,
+                              ),
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -181,8 +220,11 @@ class _HomePageState extends State<HomePage> {
                           Text(
                             widget.role == UserRole.owner
                                 ? "Pemilik Usaha"
-                                : "Karyawan",
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                : "Karyawan Cabang",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -193,7 +235,10 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.white.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.notifications_none, color: Colors.white),
+                      child: const Icon(
+                        Icons.notifications_none,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -212,9 +257,17 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildFilters(context, isWide),
+                        KasentraDashboardFilters(
+                          role: widget.role,
+                          cabangs: _cabangs,
+                          selectedCabangId: _selectedCabangId,
+                          selectedPeriode: filter,
+                          onCabangChanged: (v) =>
+                              setState(() => _selectedCabangId = v),
+                          onPeriodeChanged: (v) => setState(() => filter = v),
+                        ),
                         const SizedBox(height: 20),
-                        _buildSummarySection(context, columns),
+                        _buildSummarySection(context),
                         const SizedBox(height: 20),
                         if (isWide)
                           Row(
@@ -222,7 +275,10 @@ class _HomePageState extends State<HomePage> {
                             children: [
                               Expanded(flex: 3, child: _buildChartSection()),
                               const SizedBox(width: 16),
-                              Expanded(flex: 2, child: _buildRecentTransactions()),
+                              Expanded(
+                                flex: 2,
+                                child: _buildRecentTransactions(),
+                              ),
                             ],
                           )
                         else ...[
@@ -242,140 +298,132 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFilters(BuildContext context, bool isWide) {
-    final periodeDropdown = DropdownButtonFormField<PeriodeFilter>(
-      value: filter,
-      decoration: const InputDecoration(labelText: "Periode"),
-      items: PeriodeFilter.values
-          .map((f) => DropdownMenuItem(value: f, child: Text(_periodeLabel(f))))
-          .toList(),
-      onChanged: (v) {
-        if (v != null) setState(() => filter = v);
-      },
-    );
-
-    if (widget.role == UserRole.owner) {
-      final cabangDropdown = DropdownButtonFormField<String?>(
-        value: _selectedCabangId,
-        decoration: const InputDecoration(labelText: "Cabang"),
-        items: [
-          const DropdownMenuItem(value: null, child: Text("Semua Cabang")),
-          ..._cabangs.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nama))),
-        ],
-        onChanged: (v) => setState(() => _selectedCabangId = v),
-      );
-
-      if (isWide) {
-        return Row(
-          children: [
-            Expanded(child: cabangDropdown),
-            const SizedBox(width: 12),
-            Expanded(child: periodeDropdown),
-          ],
-        );
-      }
-      return Column(
-        children: [
-          cabangDropdown,
-          const SizedBox(height: 12),
-          periodeDropdown,
-        ],
-      );
-    }
-
-    final cabangName = _cabangs
-        .firstWhere(
-          (c) => c.id == _selectedCabangId,
-          orElse: () => Cabang(id: '-', nama: 'Tidak diketahui', alamat: '-', modalAwal: 0),
-        )
-        .nama;
-
-    if (isWide) {
-      return Row(
-        children: [
-          Expanded(
-            child: InputDecorator(
-              decoration: const InputDecoration(labelText: "Cabang"),
-              child: Text(cabangName),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: periodeDropdown),
-        ],
-      );
-    }
+  Widget _buildSummarySection(BuildContext context) {
+    final balanceLabel = widget.role == UserRole.owner
+        ? 'Total Saldo'
+        : 'Saldo Cabang';
 
     return Column(
       children: [
-        InputDecorator(
-          decoration: const InputDecoration(labelText: "Cabang"),
-          child: Text(cabangName),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primaryDark, AppColors.primary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                balanceLabel,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatRupiah(saldoSaatIni),
+                style: TextStyle(
+                  fontSize: Responsive.value(
+                    context,
+                    mobile: 26.0,
+                    tablet: 30.0,
+                    desktop: 32.0,
+                  ),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        periodeDropdown,
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                'Pemasukan',
+                _formatRupiah(totalMasuk),
+                AppColors.income,
+                Icons.arrow_downward_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMetricCard(
+                'Pengeluaran',
+                _formatRupiah(totalKeluar),
+                AppColors.expense,
+                Icons.arrow_upward_rounded,
+              ),
+            ),
+          ],
+        ),
+        if (widget.role == UserRole.owner) ...[
+          const SizedBox(height: 12),
+          StatCard(
+            label: 'Modal Awal',
+            value: _formatRupiah(modalAwal),
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildSummarySection(BuildContext context, int columns) {
+  Widget _buildMetricCard(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GridView.count(
-            crossAxisCount: columns,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: Responsive.value(context, mobile: 2.8, tablet: 3.2, desktop: 3.5),
+          Row(
             children: [
-              StatCard(label: "Modal Awal", value: _formatRupiah(modalAwal)),
-              StatCard(label: "Total Pemasukan", value: _formatRupiah(totalMasuk), valueColor: AppColors.income),
-              StatCard(label: "Total Pengeluaran", value: _formatRupiah(totalKeluar), valueColor: AppColors.expense),
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text("Saldo Saat Ini", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                const SizedBox(height: 8),
-                Text(
-                  _formatRupiah(saldoSaatIni),
-                  style: TextStyle(
-                    fontSize: Responsive.value(context, mobile: 22.0, tablet: 26.0, desktop: 28.0),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  saldoSaatIni >= modalAwal ? "Keuntungan periode ini" : "Kerugian periode ini",
-                  style: const TextStyle(color: AppColors.primary, fontSize: 12),
-                ),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
         ],
@@ -387,10 +435,18 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Grafik Keuangan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        const Text(
+          "Grafik Keuangan",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
         const SizedBox(height: 10),
         Container(
-          height: Responsive.value(context, mobile: 220.0, tablet: 260.0, desktop: 280.0),
+          height: Responsive.value(
+            context,
+            mobile: 220.0,
+            tablet: 260.0,
+            desktop: 280.0,
+          ),
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -405,7 +461,12 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           child: _chartDates.isEmpty
-              ? Center(child: Text("Belum ada data", style: TextStyle(color: Colors.grey.shade600)))
+              ? Center(
+                  child: Text(
+                    "Belum ada data",
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                )
               : CustomPaint(
                   painter: _DualLineChartPainter(
                     dates: _chartDates,
@@ -430,7 +491,14 @@ class _HomePageState extends State<HomePage> {
   Widget _legendItem(Color color, String label) {
     return Row(
       children: [
-        Container(width: 16, height: 3, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        Container(
+          width: 16,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],
@@ -438,12 +506,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentTransactions() {
-    final sorted = [..._filtered]..sort((a, b) => b.tanggal.compareTo(a.tanggal));
+    final sorted = [..._filtered]
+      ..sort((a, b) => b.tanggal.compareTo(a.tanggal));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Riwayat Transaksi", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        const Text(
+          "Transaksi Terbaru",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
         const SizedBox(height: 10),
         if (sorted.isEmpty)
           Container(
@@ -454,7 +526,12 @@ class _HomePageState extends State<HomePage> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Center(child: Text("Belum ada transaksi", style: TextStyle(color: Colors.grey.shade600))),
+            child: Center(
+              child: Text(
+                "Belum ada transaksi",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ),
           )
         else
           ListView.separated(
@@ -468,7 +545,8 @@ class _HomePageState extends State<HomePage> {
                 transaksi: t,
                 showDelete: widget.role == UserRole.owner,
                 onDelete: () => widget.onDelete(t.id),
-                formatDate: () => "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
+                formatDate: () =>
+                    "${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}",
                 formatRupiah: _formatRupiah,
               );
             },
@@ -538,7 +616,9 @@ class _TransactionTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            transaksi.jenis == TransaksiJenis.pemasukan ? Icons.arrow_downward : Icons.arrow_upward,
+            transaksi.jenis == TransaksiJenis.pemasukan
+                ? Icons.arrow_downward
+                : Icons.arrow_upward,
             color: transaksi.warna,
             size: 20,
           ),
@@ -557,7 +637,10 @@ class _TransactionTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
-              Text(formatDate(), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              Text(
+                formatDate(),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
             ],
           ),
         ),
@@ -566,8 +649,9 @@ class _TransactionTile extends StatelessWidget {
   }
 
   Widget _buildAmount() {
+    final prefix = transaksi.jenis == TransaksiJenis.pemasukan ? '+' : '-';
     return Text(
-      formatRupiah(transaksi.nominal),
+      '$prefix ${formatRupiah(transaksi.nominal)}',
       style: TextStyle(fontWeight: FontWeight.bold, color: transaksi.warna),
     );
   }
@@ -575,7 +659,11 @@ class _TransactionTile extends StatelessWidget {
   Widget _buildDelete() {
     return IconButton(
       onPressed: onDelete,
-      icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.expense),
+      icon: const Icon(
+        Icons.delete_outline,
+        size: 20,
+        color: AppColors.expense,
+      ),
       visualDensity: VisualDensity.compact,
     );
   }
@@ -596,11 +684,17 @@ class _DualLineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (dates.isEmpty) return;
 
-    final paintAxis = Paint()..color = Colors.grey.shade400..strokeWidth = 1;
-    final paintGrid = Paint()..color = Colors.grey.shade300..strokeWidth = 0.5;
+    final paintAxis = Paint()
+      ..color = Colors.grey.shade400
+      ..strokeWidth = 1;
+    final paintGrid = Paint()
+      ..color = Colors.grey.shade300
+      ..strokeWidth = 0.5;
 
     final allValues = [...pemasukan, ...pengeluaran];
-    int maxV = allValues.isEmpty ? 1000 : allValues.reduce((a, b) => a > b ? a : b);
+    int maxV = allValues.isEmpty
+        ? 1000
+        : allValues.reduce((a, b) => a > b ? a : b);
     if (maxV == 0) maxV = 1000;
     final interval = (maxV / 5).ceil();
     final maxY = ((maxV / interval).ceil() * interval);
@@ -614,20 +708,31 @@ class _DualLineChartPainter extends CustomPainter {
     final yStart = topPadding;
     final yEnd = size.height - bottomPadding;
 
-    canvas.drawLine(Offset(leftPadding, yStart), Offset(leftPadding, yEnd), paintAxis);
+    canvas.drawLine(
+      Offset(leftPadding, yStart),
+      Offset(leftPadding, yEnd),
+      paintAxis,
+    );
 
     for (int i = 0; i <= 5; i++) {
       final value = minY + (i * interval);
       final y = yEnd - (i / 5) * chartHeight;
       canvas.drawLine(Offset(leftPadding, y), Offset(size.width, y), paintGrid);
       final tp = TextPainter(
-        text: TextSpan(text: value.toString(), style: TextStyle(color: Colors.grey.shade700, fontSize: 10)),
+        text: TextSpan(
+          text: value.toString(),
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 10),
+        ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(leftPadding - tp.width - 4, y - tp.height / 2));
     }
 
-    canvas.drawLine(Offset(leftPadding, yEnd), Offset(size.width, yEnd), paintAxis);
+    canvas.drawLine(
+      Offset(leftPadding, yEnd),
+      Offset(size.width, yEnd),
+      paintAxis,
+    );
 
     double valueToY(int value) {
       if (maxY == minY) return yEnd;
@@ -641,14 +746,22 @@ class _DualLineChartPainter extends CustomPainter {
 
     void drawLine(List<int> values, Color color) {
       if (values.isEmpty) return;
-      final points = List.generate(values.length, (i) => Offset(indexToX(i), valueToY(values[i])));
-      final linePaint = Paint()..color = color..strokeWidth = 2.5..style = PaintingStyle.stroke;
+      final points = List.generate(
+        values.length,
+        (i) => Offset(indexToX(i), valueToY(values[i])),
+      );
+      final linePaint = Paint()
+        ..color = color
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke;
       final path = Path()..moveTo(points.first.dx, points.first.dy);
       for (int i = 1; i < points.length; i++) {
         path.lineTo(points[i].dx, points[i].dy);
       }
       canvas.drawPath(path, linePaint);
-      final dotPaint = Paint()..color = color..style = PaintingStyle.fill;
+      final dotPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
       for (final p in points) {
         canvas.drawCircle(p, 4, dotPaint);
       }
@@ -661,7 +774,10 @@ class _DualLineChartPainter extends CustomPainter {
       final x = indexToX(i);
       final label = dates[i].split('/')[0];
       final tp = TextPainter(
-        text: TextSpan(text: label, style: TextStyle(color: Colors.grey.shade700, fontSize: 9)),
+        text: TextSpan(
+          text: label,
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 9),
+        ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(x - tp.width / 2, yEnd + 4));

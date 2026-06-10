@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/transaksi.dart';
 import '../models/user.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
@@ -43,9 +44,27 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
 
-  List<Transaksi> get _filtered {
+  List<Transaksi> _filtered = const [];
+  List<int> _saldoKumulatif = const [];
+
+  @override
+  void didUpdateWidget(covariant HistoryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.transaksi != widget.transaksi ||
+        oldWidget.role != widget.role) {
+      _recompute();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _recompute();
+  }
+
+  void _recompute() {
     final now = DateTime.now();
-    return widget.transaksi.where((t) {
+    final newFiltered = widget.transaksi.where((t) {
       switch (filter) {
         case PeriodeFilter.hariIni:
           return t.tanggal.year == now.year &&
@@ -59,13 +78,46 @@ class _HistoryPageState extends State<HistoryPage> {
           return t.tanggal.year == now.year && t.tanggal.month == now.month;
       }
     }).toList();
+
+    // Saldo kumulatif dihitung sekali agar item list tidak O(n²)
+    final saldo = List<int>.filled(newFiltered.length, 0, growable: false);
+    var acc = 0;
+    for (int i = 0; i < newFiltered.length; i++) {
+      final trans = newFiltered[i];
+      acc += trans.jenis == TransaksiJenis.pemasukan
+          ? trans.nominal
+          : -trans.nominal;
+      saldo[i] = acc;
+    }
+
+    setState(() {
+      _filtered = newFiltered;
+      _saldoKumulatif = saldo;
+    });
   }
 
-  String _formatRupiah(int value) =>
-      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(value);
+  String _formatRupiah(int value) => NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  ).format(value);
 
   String _namaBulan(int bulan) {
-    const nama = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    const nama = [
+      "",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
     return nama[bulan];
   }
 
@@ -95,7 +147,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   .map((f) => DropdownMenuItem(value: f, child: Text(f.label)))
                   .toList(),
               onChanged: (v) {
-                if (v != null) setState(() => filter = v);
+                if (v == null) return;
+                setState(() => filter = v);
+                _recompute();
               },
             ),
           ),
@@ -105,7 +159,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 ? Center(
                     child: Text(
                       'Belum ada transaksi',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
                     ),
                   )
                 : ListView.separated(
@@ -113,15 +170,11 @@ class _HistoryPageState extends State<HistoryPage> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final t = _filtered[index];
-                      int saldoKumulatif = 0;
-                      for (int i = 0; i <= index; i++) {
-                        final trans = _filtered[i];
-                        saldoKumulatif += trans.jenis == TransaksiJenis.pemasukan
-                            ? trans.nominal
-                            : -trans.nominal;
-                      }
+                      final saldoKumulatif = _saldoKumulatif[index];
                       final isUntung = saldoKumulatif >= 0;
-                      final warnaSaldo = isUntung ? AppColors.income : AppColors.expense;
+                      final warnaSaldo = isUntung
+                          ? AppColors.income
+                          : AppColors.expense;
                       final isMobile = Responsive.isMobile(context);
 
                       return Container(
@@ -172,7 +225,9 @@ class _HistoryPageState extends State<HistoryPage> {
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(
-            t.jenis == TransaksiJenis.pemasukan ? Icons.arrow_downward : Icons.arrow_upward,
+            t.jenis == TransaksiJenis.pemasukan
+                ? Icons.arrow_downward
+                : Icons.arrow_upward,
             color: t.warna,
             size: 22,
           ),
@@ -202,7 +257,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.photo_outlined, size: 14, color: Colors.blue.shade600),
+                      Icon(
+                        Icons.photo_outlined,
+                        size: 14,
+                        color: Colors.blue.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Lihat bukti foto',
@@ -241,16 +300,28 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
             if (widget.role == UserRole.owner)
               IconButton(
-                icon: const Icon(Icons.delete, size: 18, color: AppColors.expense),
+                icon: const Icon(
+                  Icons.delete,
+                  size: 18,
+                  color: AppColors.expense,
+                ),
                 onPressed: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (_) => AlertDialog(
                       title: const Text('Hapus transaksi'),
-                      content: const Text('Yakin ingin menghapus transaksi ini?'),
+                      content: const Text(
+                        'Yakin ingin menghapus transaksi ini?',
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Batal'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Hapus'),
+                        ),
                       ],
                     ),
                   );
@@ -260,7 +331,10 @@ class _HistoryPageState extends State<HistoryPage> {
                     } catch (e) {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Gagal menghapus: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Gagal menghapus: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   }
@@ -272,9 +346,16 @@ class _HistoryPageState extends State<HistoryPage> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isUntung ? Icons.trending_up : Icons.trending_down, size: 14, color: warnaSaldo),
+            Icon(
+              isUntung ? Icons.trending_up : Icons.trending_down,
+              size: 14,
+              color: warnaSaldo,
+            ),
             const SizedBox(width: 4),
-            Text(isUntung ? 'Untung' : 'Rugi', style: TextStyle(fontSize: 12, color: warnaSaldo)),
+            Text(
+              isUntung ? 'Untung' : 'Rugi',
+              style: TextStyle(fontSize: 12, color: warnaSaldo),
+            ),
           ],
         ),
         if (t.isModalKiriman)
@@ -303,15 +384,23 @@ class _HistoryPageState extends State<HistoryPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               child: Image.network(
-                'http://192.168.1.2:8000/storage/$fotoUrl',
+                '${ApiService.baseUrl.replaceFirst('/api', '')}/storage/$fotoUrl',
+
                 fit: BoxFit.cover,
-                loadingBuilder: (_, child, progress) =>
-                    progress == null ? child : const Center(child: CircularProgressIndicator()),
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : const Center(child: CircularProgressIndicator()),
                 errorBuilder: (_, __, ___) => const Padding(
                   padding: EdgeInsets.all(32),
-                  child: Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
             ),

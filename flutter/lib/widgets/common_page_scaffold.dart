@@ -31,7 +31,7 @@ class CommonPageScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: headerColor,
+      backgroundColor: AppColors.surface,
       floatingActionButton: floatingActionButton,
       body: Column(
         children: [
@@ -40,11 +40,8 @@ class CommonPageScaffold extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [headerColor, AppColors.primaryLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(28),
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
             padding: headerPadding,

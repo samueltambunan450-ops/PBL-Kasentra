@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
+import 'kasentra_bottom_nav.dart';
 
 class AdaptiveDashboardScaffold extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
   final List<Widget> pages;
-  final List<NavigationDestination> destinations;
+  final List<KasentraNavDestination> destinations;
+  final int fabIndex;
 
   const AdaptiveDashboardScaffold({
     super.key,
@@ -15,6 +17,7 @@ class AdaptiveDashboardScaffold extends StatelessWidget {
     required this.onDestinationSelected,
     required this.pages,
     required this.destinations,
+    this.fabIndex = 2,
   });
 
   @override
@@ -38,8 +41,8 @@ class AdaptiveDashboardScaffold extends StatelessWidget {
               destinations: destinations
                   .map(
                     (d) => NavigationRailDestination(
-                      icon: d.icon,
-                      selectedIcon: d.selectedIcon ?? d.icon,
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selectedIcon),
                       label: Text(d.label),
                     ),
                   )
@@ -62,10 +65,11 @@ class AdaptiveDashboardScaffold extends StatelessWidget {
         index: currentIndex,
         children: pages,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+      bottomNavigationBar: KasentraBottomNav(
+        currentIndex: currentIndex,
         onDestinationSelected: onDestinationSelected,
         destinations: destinations,
+        fabIndex: fabIndex,
       ),
     );
   }

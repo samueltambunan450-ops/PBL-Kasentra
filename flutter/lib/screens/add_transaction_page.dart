@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,6 +14,7 @@ import '../services/domain_api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
+import '../widgets/kasentra_form_field.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final void Function(Transaksi) onSaved;
@@ -38,7 +39,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   final TextEditingController keteranganC = TextEditingController();
   String? kategori; // selected category for transaksi
   String? _selectedCabangId;
-  String? _fotoBuktiPath;
+  Uint8List? _fotoBuktiBytes;
   String? _fotoBuktiBase64;
   bool _isModalKiriman = false;
   bool _sudahAdaPengeluaran = true;
@@ -309,7 +310,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     if (widget.embedded) {
       return CommonPageScaffold(
         title: title,
-        subtitle: 'Catat pemasukan atau pengeluaran',
+        subtitle: 'Catat pemasukan atau pengeluaran harian',
         body: form,
       );
     }
@@ -337,314 +338,205 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     final isWide = !Responsive.isMobile(context);
 
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    jenis = TransaksiJenis.pemasukan;
-                                    kategori = null;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: jenis == TransaksiJenis.pemasukan
-                                        ? Colors.green
-                                        : Colors.transparent,
-                                    borderRadius:
-                                        BorderRadius.circular(30),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      "Pemasukan",
-                                      style: TextStyle(
-                                        color: jenis ==
-                                                TransaksiJenis.pemasukan
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    jenis = TransaksiJenis.pengeluaran;
-                                    kategori = null;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: jenis ==
-                                            TransaksiJenis.pengeluaran
-                                        ? Colors.green
-                                        : Colors.transparent,
-                                    borderRadius:
-                                        BorderRadius.circular(30),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      "Pengeluaran",
-                                      style: TextStyle(
-                                        color: jenis ==
-                                                TransaksiJenis.pengeluaran
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: Text(
-                          _formatNominalPreview(),
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: Responsive.value(context, mobile: 24.0, tablet: 28.0, desktop: 32.0),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        "Nominal",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: nominalC,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          hintText: "Masukkan jumlah uang",
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(16)),
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "Tanggal",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w500, fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                      GestureDetector(
-                        onTap: _pilihTanggal,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: Colors.grey.shade300, width: 1),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _formatTanggal(tanggal),
-                                style: TextStyle(
-                                  color: tanggal == null
-                                      ? Colors.grey
-                                      : Colors.black87,
-                                ),
-                              ),
-                              Icon(Icons.calendar_today_outlined,
-                                  size: 18, color: Colors.grey[700]),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (AuthService.isOwner()) ...[
-                        const Text("Cabang", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          value: _selectedCabangId,
-                          items: _cabangs
-                              .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.nama)))
-                              .toList(),
-                          decoration: const InputDecoration(),
-                          onChanged: (v) => setState(() {
-                            _selectedCabangId = v;
-                            kategori = null;
-                          }),
-                          hint: const Text('Pilih cabang'),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (isWide)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildKategoriField()),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildCatatanField()),
-                          ],
-                        )
-                      else ...[
-                        _buildKategoriField(),
-                        const SizedBox(height: 16),
-                        _buildCatatanField(),
-                      ],
-                      const SizedBox(height: 16),
-                      const Text("Foto Bukti", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                      const SizedBox(height: 8),
-                      if (_fotoBuktiPath != null)
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                File(_fotoBuktiPath!),
-                                height: 160,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () => setState(() {
-                                  _fotoBuktiPath = null;
-                                  _fotoBuktiBase64 = null;
-                                }),
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                  child: const Icon(Icons.close, color: Colors.white, size: 16),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _ambilFoto,
-                                icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                                label: const Text('Kamera'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _ambilDariGaleri,
-                                icon: const Icon(Icons.photo_library_outlined, size: 18),
-                                label: const Text('Galeri'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 16),
-                      if (AuthService.isOwner())
-                        Row(
-                          children: [
-                            Switch(
-                              value: _isModalKiriman,
-                              onChanged: (v) => setState(() => _isModalKiriman = v),
-                              activeColor: AppColors.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Ini adalah kiriman modal ke cabang'),
-                          ],
-                        ),
-                      if (!AuthService.isOwner() && jenis == TransaksiJenis.pemasukan && !_sudahAdaPengeluaran)
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 20),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Anda belum mencatat pengeluaran hari ini. Catat pengeluaran terlebih dahulu.',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      isWide
-                          ? Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: _simpan,
-                                    child: Text(_isEditing ? "Perbarui" : "Selesai"),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: _resetForm,
-                                    child: const Text("Batal"),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: _simpan,
-                                    child: Text(_isEditing ? "Perbarui" : "Selesai"),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton(
-                                    onPressed: _resetForm,
-                                    child: const Text("Batal"),
-                                  ),
-                                ),
-                              ],
-                            ),
-                      const SizedBox(height: 12),
-                    ],
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildJenisToggle(),
+            const SizedBox(height: 20),
+            Center(
+              child: Text(
+                _formatNominalPreview(),
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: Responsive.value(context, mobile: 28.0, tablet: 32.0, desktop: 36.0),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const KasentraFormLabel('Nominal'),
+            TextField(
+              controller: nominalC,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'Masukkan jumlah uang'),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+            const KasentraFormLabel('Tanggal'),
+            GestureDetector(
+              onTap: _pilihTanggal,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                ),
+                child: Text(
+                  _formatTanggal(tanggal),
+                  style: TextStyle(color: tanggal == null ? Colors.grey : Colors.black87),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (AuthService.isOwner()) ...[
+              const KasentraFormLabel('Cabang'),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCabangId,
+                items: _cabangs
+                    .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.nama)))
+                    .toList(),
+                decoration: const InputDecoration(),
+                onChanged: (v) => setState(() {
+                  _selectedCabangId = v;
+                  kategori = null;
+                }),
+                hint: const Text('Pilih cabang'),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildKategoriField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildCatatanField()),
+                ],
+              )
+            else ...[
+              _buildKategoriField(),
+              const SizedBox(height: 16),
+              _buildCatatanField(),
+            ],
+            const SizedBox(height: 16),
+            const KasentraFormLabel('Foto Bukti'),
+            KasentraPhotoPicker(
+              previewBytes: _fotoBuktiBytes,
+              onCamera: _ambilFoto,
+              onGallery: _ambilDariGaleri,
+              onRemove: () => setState(() {
+                _fotoBuktiBytes = null;
+                _fotoBuktiBase64 = null;
+              }),
+            ),
+            if (AuthService.isOwner()) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Switch(
+                    value: _isModalKiriman,
+                    onChanged: (v) => setState(() => _isModalKiriman = v),
+                    activeThumbColor: AppColors.primary,
                   ),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Ini adalah kiriman modal ke cabang', style: TextStyle(fontSize: 13))),
+                ],
+              ),
+            ],
+            if (!AuthService.isOwner() && jenis == TransaksiJenis.pemasukan && !_sudahAdaPengeluaran) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Anda belum mencatat pengeluaran hari ini. Catat pengeluaran terlebih dahulu.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: _simpan,
+                child: Text(
+                  _isEditing ? 'Perbarui Transaksi' : 'Simpan Transaksi',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            if (widget.embedded) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: OutlinedButton(
+                  onPressed: _resetForm,
+                  child: const Text('Reset Form'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJenisToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildJenisChip(TransaksiJenis.pemasukan, 'Pemasukan')),
+          Expanded(child: _buildJenisChip(TransaksiJenis.pengeluaran, 'Pengeluaran')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJenisChip(TransaksiJenis type, String label) {
+    final selected = jenis == type;
+    final color = type == TransaksiJenis.pemasukan ? AppColors.income : AppColors.expense;
+
+    return GestureDetector(
+      onTap: () => setState(() {
+        jenis = type;
+        kategori = null;
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -652,10 +544,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Kategori", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        const SizedBox(height: 6),
+        const KasentraFormLabel('Kategori'),
         DropdownButtonFormField<String>(
-          value: kategori,
+          initialValue: kategori,
           items: _kategoris
               .where((k) {
                 final matchesType = k.tipe == (jenis == TransaksiJenis.pemasukan
@@ -679,8 +570,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Catatan", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        const SizedBox(height: 6),
+        const KasentraFormLabel('Catatan'),
         TextField(
           controller: keteranganC,
           maxLines: 3,
@@ -692,32 +582,40 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Future<void> _ambilFoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _fotoBuktiPath = picked.path;
-      _fotoBuktiBase64 = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-    });
-  }
+  Future<void> _ambilFoto() => _pilihFoto(ImageSource.camera);
 
-  Future<void> _ambilDariGaleri() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _fotoBuktiPath = picked.path;
-      _fotoBuktiBase64 = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-    });
+  Future<void> _ambilDariGaleri() => _pilihFoto(ImageSource.gallery);
+
+  Future<void> _pilihFoto(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 1920,
+      );
+      if (picked == null || !mounted) return;
+
+      final bytes = await picked.readAsBytes();
+      final mimeType = picked.mimeType ?? 'image/jpeg';
+
+      setState(() {
+        _fotoBuktiBytes = bytes;
+        _fotoBuktiBase64 = 'data:$mimeType;base64,${base64Encode(bytes)}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final label = source == ImageSource.camera ? 'kamera' : 'galeri';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal mengambil foto dari $label. Pastikan izin kamera/galeri diaktifkan.',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   void _resetForm() {
@@ -729,7 +627,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       tanggal = DateTime.now();
       _selectedCabangId = AuthService.currentUser?.cabangId;
       _fotoBuktiBase64 = null;
-      _fotoBuktiPath = null;
+      _fotoBuktiBytes = null;
       _isModalKiriman = false;
     });
   }

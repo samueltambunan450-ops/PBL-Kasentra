@@ -7,6 +7,7 @@ import '../../services/domain_api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/adaptive_dashboard_scaffold.dart';
+import '../../widgets/kasentra_bottom_nav.dart';
 import '../../widgets/stat_card.dart';
 import '../add_transaction_page.dart';
 import '../login_page.dart';
@@ -421,6 +422,7 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
 
     final pages = <Widget>[
       _buildHomePage(),
+      _buildHistorySection(),
       AddTransactionPage(onSaved: _onSaved, embedded: true),
       _buildProfilePage(),
     ];
@@ -430,19 +432,24 @@ class _KaryawanDashboardPageState extends State<KaryawanDashboardPage> {
       onDestinationSelected: (index) => setState(() => _currentIndex = index),
       pages: pages,
       destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home, color: AppColors.primary),
+        KasentraNavDestination(
+          icon: Icons.home_outlined,
+          selectedIcon: Icons.home,
           label: 'Home',
         ),
-        NavigationDestination(
-          icon: Icon(Icons.add_circle_outline),
-          selectedIcon: Icon(Icons.add_circle, color: AppColors.primary),
-          label: 'Tambah',
+        KasentraNavDestination(
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long,
+          label: 'Riwayat',
         ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person, color: AppColors.primary),
+        KasentraNavDestination(
+          icon: Icons.add,
+          selectedIcon: Icons.add,
+          label: 'Transaksi',
+        ),
+        KasentraNavDestination(
+          icon: Icons.person_outline,
+          selectedIcon: Icons.person,
           label: 'Profil',
         ),
       ],
