@@ -187,6 +187,15 @@ class DomainApiService {
     return list.map((e) => AppUser.fromMap(e as Map<String, dynamic>)).toList();
   }
 
+  static Future<List<AppUser>> fetchKepalaCabangs() async {
+    final response = await ApiService.get(
+      '/users/kepala-cabang',
+      token: AuthService.token,
+    ) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
+    return list.map((e) => AppUser.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
   static Future<AppUser> createKaryawan({
     required String nama,
     required String email,
@@ -224,6 +233,10 @@ class DomainApiService {
 
   static Future<void> deleteKaryawan(String id) async {
     await ApiService.delete('/karyawans/$id', token: AuthService.token);
+  }
+
+  static Future<void> deleteKepalaCabang(String id) async {
+    await ApiService.delete('/users/$id', token: AuthService.token);
   }
 
   static Future<String> generateInvitation({

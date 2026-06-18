@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CabangController;
 use App\Http\Controllers\Api\KaryawanController;
 use App\Http\Controllers\Api\KategoriController;
 use App\Http\Controllers\Api\TransaksiController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('cors.api')->group(function (): void {
@@ -44,5 +45,8 @@ Route::middleware('cors.api')->group(function (): void {
         Route::post('/karyawans', [KaryawanController::class, 'store']);
         Route::put('/karyawans/{id}', [KaryawanController::class, 'update']);
         Route::delete('/karyawans/{id}', [KaryawanController::class, 'destroy']);
+
+        Route::get('/users/kepala-cabang', [UserController::class, 'indexKepalaCabang']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
     });
 });

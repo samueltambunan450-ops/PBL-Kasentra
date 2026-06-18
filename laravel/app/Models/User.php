@@ -25,6 +25,7 @@ class User extends Authenticatable
         'google_uid',
         'role',
         'cabang_id',
+        'status',
     ];
 
     /**

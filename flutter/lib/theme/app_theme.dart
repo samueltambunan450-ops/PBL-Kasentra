@@ -90,3 +90,24 @@ class AppTheme {
     );
   }
 }
+
+const primaryGreen = Color(0xFF1F8B4C);
+const primaryGreenSoft = Color(0xFFEAF5EE);
+const dangerColor = Color(0xFFE53935);
+const successColor = Color(0xFF1F8B4C);
+const textPrimary = Color(0xFF1A1A1A);
+const textSecondary = Color(0xFF757575);
+const textTertiary = Color(0xFFBDBDBD);
+const radiusLarge = 20.0;
+const radiusMedium = 14.0;
+const cardShadow = [
+  BoxShadow(
+    color: Color(0x0D000000),
+    blurRadius: 10,
+    offset: Offset(0, 4),
+  ),
+];
+const backgroundGrey = Color(0xFFF4F6F8);
+const surfaceWhite = Colors.white;
+const dividerColor = Color(0xFFEEEEEE);
+

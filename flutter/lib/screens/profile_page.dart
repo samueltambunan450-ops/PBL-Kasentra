@@ -82,7 +82,7 @@ class ProfilePage extends StatelessWidget {
                   if (user.role == UserRole.owner) ...[
                     _buildMenuTile(context, Icons.store, 'Kelola Cabang', const ManageCabangPage()),
                     const Divider(height: 1),
-                    _buildMenuTile(context, Icons.group, 'Kelola Karyawan', const ManageKaryawanPage()),
+                    _buildMenuTile(context, Icons.group, 'Kelola Kepala Cabang', const KelolKepalaCabangPage()),
                     const Divider(height: 1),
                     _buildMenuTile(context, Icons.category, 'Kelola Kategori', const ManageKategoriPage()),
                     const Divider(height: 1),
