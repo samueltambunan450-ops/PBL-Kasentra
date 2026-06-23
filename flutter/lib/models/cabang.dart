@@ -4,9 +4,10 @@ class Cabang {
   final String id;
   final String nama;
   final String alamat;
-  final double modalAwal; // Modal awal usaha untuk cabang ini (F007)
+  final double modalAwal;
   final String? jamBuka;
   final String? jamTutup;
+  final String? businessId; // nullable — cabang lama tidak punya business_id
 
   Cabang({
     required this.id,
@@ -15,9 +16,9 @@ class Cabang {
     required this.modalAwal,
     this.jamBuka,
     this.jamTutup,
+    this.businessId,
   });
 
-  // Factory untuk membuat Cabang dari JSON response API
   factory Cabang.fromJson(Map<String, dynamic> json) {
     return Cabang(
       id: json['id'].toString(),
@@ -26,10 +27,10 @@ class Cabang {
       modalAwal: double.tryParse(json['modal_awal'].toString()) ?? 0,
       jamBuka: json['jam_buka']?.toString(),
       jamTutup: json['jam_tutup']?.toString(),
+      businessId: json['business_id']?.toString(),
     );
   }
 
-  // Factory untuk membuat Cabang dari Map (untuk database)
   factory Cabang.fromMap(Map<String, dynamic> map) {
     return Cabang(
       id: map['id'],
@@ -38,10 +39,10 @@ class Cabang {
       modalAwal: map['modalAwal'] ?? 0.0,
       jamBuka: map['jam_buka']?.toString() ?? map['jamBuka']?.toString(),
       jamTutup: map['jam_tutup']?.toString() ?? map['jamTutup']?.toString(),
+      businessId: map['business_id']?.toString(),
     );
   }
 
-  // Method untuk mengubah Cabang ke Map (untuk database)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -50,10 +51,10 @@ class Cabang {
       'modalAwal': modalAwal,
       'jamBuka': jamBuka,
       'jamTutup': jamTutup,
+      'businessId': businessId,
     };
   }
 
-  // CopyWith untuk update
   Cabang copyWith({
     String? id,
     String? nama,
@@ -61,6 +62,7 @@ class Cabang {
     double? modalAwal,
     String? jamBuka,
     String? jamTutup,
+    String? businessId,
   }) {
     return Cabang(
       id: id ?? this.id,
@@ -69,6 +71,7 @@ class Cabang {
       modalAwal: modalAwal ?? this.modalAwal,
       jamBuka: jamBuka ?? this.jamBuka,
       jamTutup: jamTutup ?? this.jamTutup,
+      businessId: businessId ?? this.businessId,
     );
   }
 

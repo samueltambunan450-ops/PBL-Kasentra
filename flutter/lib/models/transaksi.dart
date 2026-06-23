@@ -15,6 +15,7 @@ class Transaksi {
   final String userId; // ID user yang menambah transaksi
   final String? fotoBukti;
   final bool isModalKiriman;
+  final String createdByName; // Nama pembuat transaksi
 
   Transaksi({
     required this.id,
@@ -27,6 +28,7 @@ class Transaksi {
     required this.userId,
     this.fotoBukti,
     this.isModalKiriman = false,
+    this.createdByName = 'Tidak diketahui',
   });
 
   // Factory untuk membuat Transaksi dari Map
@@ -56,6 +58,9 @@ class Transaksi {
       userId: map['userId'] ?? map['user_id']?.toString() ?? '',
       fotoBukti: map['foto_bukti']?.toString(),
       isModalKiriman: isModal,
+      createdByName: map['created_by_name']?.toString() ?? 
+                     (map['user'] is Map ? map['user']['name']?.toString() : null) ?? 
+                     'Tidak diketahui',
     );
   }
 
@@ -72,6 +77,7 @@ class Transaksi {
       'userId': userId,
       'foto_bukti': fotoBukti,
       'is_modal_kiriman': isModalKiriman,
+      'created_by_name': createdByName,
     };
   }
 

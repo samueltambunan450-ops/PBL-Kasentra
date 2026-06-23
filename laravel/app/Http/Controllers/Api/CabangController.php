@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Business;
 use App\Models\Cabang;
 use App\Models\Transaksi;
 use App\Models\User;
@@ -14,31 +15,57 @@ use Throwable;
 
 class CabangController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $cabangs = Cabang::orderBy('id')->get(['id', 'nama', 'alamat', 'modal_awal', 'jam_buka', 'jam_tutup']);
+            $user = $request->attributes->get('authUser');
+
+            // Scope ke cabang milik business owner yang login
+            // Karyawan & kepala_cabang hanya lihat cabang mereka sendiri
+            if ($user?->role === 'owner') {
+                // Cari semua business milik owner ini, lalu ambil cabangnya
+                $businessIds = \App\Models\Business::where('owner_id', $user->id)
+                    ->pluck('id');
+
+                $cabangs = Cabang::whereIn('business_id', $businessIds)
+                    ->orderBy('id')
+                    ->get(['id', 'nama', 'alamat', 'modal_awal', 'jam_buka', 'jam_tutup', 'business_id']);
+            } elseif ($user?->role === 'karyawan' || $user?->role === 'kepala_cabang') {
+                // Karyawan / kepala cabang hanya bisa lihat cabangnya sendiri
+                $cabangs = $user->cabang_id
+                    ? Cabang::where('id', $user->cabang_id)
+                        ->get(['id', 'nama', 'alamat', 'modal_awal', 'jam_buka', 'jam_tutup', 'business_id'])
+                    : collect();
+            } else {
+                $cabangs = collect();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Daftar cabang',
-                'data' => $cabangs,
+                'data'    => $cabangs,
             ]);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memuat data cabang',
-                'errors' => ['exception' => $e->getMessage()],
+                'errors'  => ['exception' => $e->getMessage()],
             ], 500);
         }
     }
 
     public function store(Request $request): JsonResponse
     {
+        $user = $request->attributes->get('authUser');
+        if (!$user || $user->role !== 'owner') {
+            return response()->json(['success' => false, 'message' => 'Hanya owner yang dapat menambah cabang'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
-            'nama' => ['required'],
-            'alamat' => ['required'],
-            'modal_awal' => ['required', 'numeric', 'min:0'],
-            'jam_buka' => ['nullable', 'date_format:H:i'],
+            'nama'      => ['required'],
+            'alamat'    => ['required'],
+            'modal_awal'=> ['required', 'numeric', 'min:0'],
+            'jam_buka'  => ['nullable', 'date_format:H:i'],
             'jam_tutup' => ['nullable', 'date_format:H:i'],
         ]);
 
@@ -46,34 +73,51 @@ class CabangController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         try {
-            $payload = $validator->validated();
+            // Ambil business milik owner yang login — WAJIB scope ke tenant
+            $business = Business::where('owner_id', $user->id)->first();
+            if (!$business) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Belum ada usaha terdaftar untuk akun ini',
+                ], 422);
+            }
+
+            $payload = array_merge($validator->validated(), [
+                'business_id' => $business->id,
+            ]);
             $cabang = Cabang::create($payload);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Data berhasil disimpan',
-                'data' => $cabang,
+                'data'    => $cabang,
             ], 201);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan cabang',
-                'errors' => ['exception' => $e->getMessage()],
+                'errors'  => ['exception' => $e->getMessage()],
             ], 500);
         }
     }
 
     public function update(Request $request, $id): JsonResponse
     {
+        $user = $request->attributes->get('authUser');
+        if (!$user || $user->role !== 'owner') {
+            return response()->json(['success' => false, 'message' => 'Hanya owner yang dapat mengubah cabang'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
-            'nama' => ['required'],
-            'alamat' => ['required'],
-            'modal_awal' => ['required', 'numeric', 'min:0'],
-            'jam_buka' => ['nullable', 'date_format:H:i'],
+            'nama'      => ['required'],
+            'alamat'    => ['required'],
+            'modal_awal'=> ['required', 'numeric', 'min:0'],
+            'jam_buka'  => ['nullable', 'date_format:H:i'],
             'jam_tutup' => ['nullable', 'date_format:H:i'],
         ]);
 
@@ -81,23 +125,33 @@ class CabangController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         try {
             $cabang = Cabang::findOrFail($id);
+
+            // Pastikan cabang ini benar-benar milik business owner yang login
+            $ownsIt = Business::where('owner_id', $user->id)
+                ->where('id', $cabang->business_id)
+                ->exists();
+            // Izinkan juga cabang legacy (business_id null) untuk owner
+            if ($cabang->business_id !== null && !$ownsIt) {
+                return response()->json(['success' => false, 'message' => 'Cabang tidak dimiliki oleh usaha Anda'], 403);
+            }
+
             $cabang->update($validator->validated());
             return response()->json([
                 'success' => true,
                 'message' => 'Data berhasil diperbarui',
-                'data' => $cabang,
+                'data'    => $cabang,
             ]);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memperbarui cabang',
-                'errors' => ['exception' => $e->getMessage()],
+                'errors'  => ['exception' => $e->getMessage()],
             ], 500);
         }
     }
@@ -140,8 +194,7 @@ class CabangController extends Controller
             $cabang = Cabang::findOrFail($id);
 
             DB::transaction(function () use ($cabang) {
-                // hapus karyawan dan transaksi terkait
-                User::where('cabang_id', $cabang->id)->delete();
+                User::where('cabang_id', $cabang->id)->update(['cabang_id' => null]);
                 Transaksi::where('cabang_id', $cabang->id)->delete();
                 $cabang->delete();
             });
@@ -149,13 +202,13 @@ class CabangController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Cabang berhasil dihapus',
-                'data' => null,
+                'data'    => null,
             ]);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menghapus cabang',
-                'errors' => ['exception' => $e->getMessage()],
+                'errors'  => ['exception' => $e->getMessage()],
             ], 500);
         }
     }

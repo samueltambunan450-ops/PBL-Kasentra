@@ -1,4 +1,4 @@
-enum UserRole { owner, karyawan, pending }
+enum UserRole { owner, karyawan, kepalaCabang, pending }
 
 class AppUser {
   final String id;
@@ -6,7 +6,7 @@ class AppUser {
   final String email;
   final String googleId;
   final UserRole role;
-  final String? cabangId; // ID cabang tempat karyawan bekerja (null untuk owner)
+  final String? cabangId; // ID cabang tempat user bekerja (null untuk owner)
 
   AppUser({
     required this.id,
@@ -19,12 +19,19 @@ class AppUser {
 
   // Factory untuk membuat AppUser dari Map
   factory AppUser.fromMap(Map<String, dynamic> map) {
+    // Debug logging to help diagnose role parsing issues
+    print('🔍 AppUser.fromMap received: ${map.toString()}');
+    print('🔍 Role value: ${map['role']} (type: ${map['role'].runtimeType})');
+    
+    final parsedRole = _parseRole(map['role']);
+    print('🔍 Parsed role: $parsedRole');
+    
     return AppUser(
       id: map['id'].toString(),
       nama: (map['name'] ?? map['nama'] ?? '').toString(),
       email: (map['email'] ?? '').toString(),
       googleId: (map['google_uid'] ?? map['googleId'] ?? '').toString(),
-      role: _parseRole(map['role']),
+      role: parsedRole,
       cabangId: map['cabang_id']?.toString() ?? map['cabangId']?.toString(),
     );
   }
@@ -33,6 +40,7 @@ class AppUser {
     final role = value?.toString().toLowerCase();
     if (role == 'owner') return UserRole.owner;
     if (role == 'karyawan') return UserRole.karyawan;
+    if (role == 'kepala_cabang') return UserRole.kepalaCabang;
     return UserRole.pending;
   }
 
@@ -72,6 +80,11 @@ class AppUser {
     if (beforeAt.isNotEmpty) return beforeAt.toLowerCase();
     return nama.trim().toLowerCase().replaceAll(' ', '');
   }
+
+  bool get isOwner => role == UserRole.owner;
+  bool get isKepalaCabang => role == UserRole.kepalaCabang;
+  bool get isKaryawan => role == UserRole.karyawan;
+  bool get isPending => role == UserRole.pending;
 }
 
 

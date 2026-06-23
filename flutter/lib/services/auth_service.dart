@@ -27,6 +27,20 @@ class AuthService {
   }
 
   static Future<bool> signInWithGoogle() async {
+    // Bersihkan sesi lama SEBELUM login akun baru untuk mencegah data bocor
+    // jika user berpindah akun tanpa explicit logout
+    final pref = await SharedPreferences.getInstance();
+    final existingToken = pref.getString(_tokenKey);
+    if (existingToken != null && existingToken.isNotEmpty) {
+      // Logout token lama dari server (best-effort, tidak blocking)
+      try {
+        await ApiService.post('/auth/logout', token: existingToken);
+      } catch (_) {}
+      await pref.remove(_tokenKey);
+    }
+    _currentUser = null;
+    _token = null;
+
     try {
       String? googleId;
       String? email;
@@ -34,6 +48,11 @@ class AuthService {
 
       if (kIsWeb) {
         final provider = GoogleAuthProvider();
+        // Force account selection dialog untuk Flutter Web
+        // Parameter 'prompt': 'select_account' memaksa Google selalu tampilkan
+        // dialog pilih akun, bahkan jika sudah ada sesi aktif di browser
+        provider.addScope('email');
+        provider.setCustomParameters({'prompt': 'select_account'});
         final userCredential = await FirebaseAuth.instance.signInWithPopup(provider);
         final user = userCredential.user;
 
@@ -77,13 +96,21 @@ class AuthService {
         },
       ) as Map<String, dynamic>;
 
+      print('🔍 Auth Response Payload: ${payload.toString()}');
+
       final token = payload['token']?.toString();
       final userMap = payload['user'] as Map<String, dynamic>?;
+      
+      print('🔍 Token: $token');
+      print('🔍 User Map: ${userMap.toString()}');
+      
       if (token == null || userMap == null) {
         throw Exception('Response server tidak valid');
       }
 
       final user = AppUser.fromMap(userMap);
+      print('🔍 Created AppUser: role=${user.role}, isPending=${user.isPending}');
+      
       await _setSession(token, user);
       return true;
     } catch (e) {
@@ -100,6 +127,20 @@ class AuthService {
 
   static Future<void> updateCurrentUser(AppUser user) async {
     _currentUser = user;
+  }
+
+  /// Refresh user data dari server untuk mendapatkan informasi terbaru
+  static Future<AppUser?> refreshUserSession() async {
+    if (_token == null || _token!.isEmpty) return null;
+    try {
+      final payload = await ApiService.get('/auth/me', token: _token) as Map<String, dynamic>;
+      final map = payload['user'] as Map<String, dynamic>;
+      final user = _mapUser(map);
+      _currentUser = user;
+      return user;
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<void> signOut() async {
@@ -122,6 +163,10 @@ class AuthService {
 
   static bool isKaryawan() {
     return _currentUser?.role == UserRole.karyawan;
+  }
+
+  static bool isKepalaCabang() {
+    return _currentUser?.role == UserRole.kepalaCabang;
   }
 
   static AppUser _mapUser(Map<String, dynamic> map) {

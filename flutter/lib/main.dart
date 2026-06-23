@@ -27,12 +27,16 @@ class KasentraApp extends StatelessWidget {
   const KasentraApp({super.key});
 
   Widget _buildHome(AppUser currentUser) {
-    if (currentUser.role == UserRole.pending) {
+    print('🔍 _buildHome called with user: ${currentUser.email}, role: ${currentUser.role}, isPending: ${currentUser.isPending}');
+    
+    // Pending → pilih peran
+    if (currentUser.isPending) {
+      print('🔍 Routing to OnboardingPage (isPending=true)');
       return OnboardingPage(user: currentUser);
     }
-    if (currentUser.role == UserRole.owner) {
-      return DashboardPage(user: currentUser);
-    }
+    // Owner, Kepala Cabang, Karyawan → ke dashboard masing-masing
+    // (DashboardPage sudah handle routing internal per role)
+    print('🔍 Routing to DashboardPage');
     return DashboardPage(user: currentUser);
   }
 

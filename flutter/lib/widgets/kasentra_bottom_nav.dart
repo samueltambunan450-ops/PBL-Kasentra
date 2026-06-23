@@ -43,15 +43,17 @@ class KasentraBottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 68,
-          child: Row(
-            children: List.generate(destinations.length, (index) {
-              if (index == fabIndex) {
-                return Expanded(child: _buildFab(context));
-              }
-              return Expanded(child: _buildItem(index));
-            }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: IntrinsicHeight(
+            child: Row(
+              children: List.generate(destinations.length, (index) {
+                if (index == fabIndex) {
+                  return Expanded(child: _buildFab(context));
+                }
+                return Expanded(child: _buildItem(index));
+              }),
+            ),
           ),
         ),
       ),
@@ -64,13 +66,14 @@ class KasentraBottomNav extends StatelessWidget {
       onTap: () => onDestinationSelected(fabIndex),
       behavior: HitTestBehavior.opaque,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Transform.translate(
-            offset: const Offset(0, -10),
+            offset: const Offset(0, -8),
             child: Container(
-              width: 52,
-              height: 52,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
                 color: selected ? AppColors.primaryDark : AppColors.primary,
                 shape: BoxShape.circle,
@@ -82,17 +85,19 @@ class KasentraBottomNav extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
+              child: const Icon(Icons.add, color: Colors.white, size: 26),
             ),
           ),
           const SizedBox(height: 2),
           Text(
             destinations[fabIndex].label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? AppColors.primary : Colors.grey.shade600,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -107,6 +112,7 @@ class KasentraBottomNav extends StatelessWidget {
       onTap: () => onDestinationSelected(index),
       behavior: HitTestBehavior.opaque,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
@@ -114,14 +120,16 @@ class KasentraBottomNav extends StatelessWidget {
             size: 22,
             color: selected ? AppColors.primary : Colors.grey.shade500,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             dest.label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? AppColors.primary : Colors.grey.shade600,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

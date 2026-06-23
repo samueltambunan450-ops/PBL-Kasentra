@@ -52,4 +52,24 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Cabang::class, 'cabang_id');
     }
+
+    public function branchHead(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BranchHead::class, 'user_id');
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    public function isKepalaCabang(): bool
+    {
+        return $this->role === 'kepala_cabang';
+    }
+
+    public function isPending(): bool
+    {
+        return $this->role === 'pending' || $this->role === null;
+    }
 }

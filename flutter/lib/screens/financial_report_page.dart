@@ -1,10 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 
 import '../models/cabang.dart';
 import '../models/transaksi.dart';
+import '../services/api_service.dart';
 import '../services/domain_api_service.dart';
+import '../services/pdf_report_generator.dart';
 import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
 
@@ -27,6 +30,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
   DateTime _currentPeriod = DateTime.now();
   List<Cabang> _cabangs = [];
   bool _loadingCabangs = true;
+  bool _exportingPdf = false;
 
   @override
   void initState() {
@@ -49,7 +53,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
   }
 
   List<Transaksi> get _filteredTransaksi {
-    return widget.transaksi.where((t) {
+    final filtered = widget.transaksi.where((t) {
       final cabangMatch =
           _selectedCabangId.isEmpty || t.cabangId == _selectedCabangId;
 
@@ -85,6 +89,8 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
 
       return cabangMatch && dateMatch;
     }).toList();
+    
+    return filtered;
   }
 
   double get _modalAwal {
@@ -229,6 +235,40 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
     }
   }
 
+  String _buildFotoUrl(String relativePath) {
+    return ApiService.buildFotoUrl(relativePath);
+  }
+
+  Future<void> _exportPdf() async {
+    if (_exportingPdf) return;
+    setState(() => _exportingPdf = true);
+
+    try {
+      // Use the new PdfReportGenerator
+      final generator = PdfReportGenerator(
+        transactions: _filteredTransaksi,
+        branches: _cabangs,
+        selectedBranchId: _selectedCabangId,
+        periodLabel: _getPeriodLabel(),
+        modalAwal: _modalAwal,
+      );
+
+      final doc = await generator.generate();
+
+      await Printing.layoutPdf(onLayout: (_) async => doc.save());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membuat PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingPdf = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loadingCabangs) {
@@ -239,16 +279,22 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
       title: 'Laporan Keuangan',
       subtitle: 'Laporan transaksi dan ringkasan',
       actions: [
-        IconButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Export PDF akan diimplementasikan'),
+        _exportingPdf
+            ? const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              )
+            : IconButton(
+                onPressed: _exportPdf,
+                icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
               ),
-            );
-          },
-          icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-        ),
       ],
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -626,6 +672,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                           DataColumn(label: Text('Jenis')),
                           DataColumn(label: Text('Nominal')),
                           DataColumn(label: Text('Keterangan')),
+                          DataColumn(label: Text('Foto Bukti')),
                         ],
                         rows: _filteredTransaksi.map((t) {
                           final cabang = _cabangs.firstWhere(
@@ -637,6 +684,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                               modalAwal: 0.0,
                             ),
                           );
+                          final hasFoto = t.fotoBukti != null && t.fotoBukti!.isNotEmpty;
                           return DataRow(
                             cells: [
                               DataCell(
@@ -657,6 +705,17 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                                 Text(_formatCurrency(t.nominal.toDouble())),
                               ),
                               DataCell(Text(t.keterangan)),
+                              DataCell(
+                                hasFoto
+                                    ? TextButton(
+                                        onPressed: () {
+                                          final fotoUrl = _buildFotoUrl(t.fotoBukti!);
+                                          _showFotoViewer(fotoUrl);
+                                        },
+                                        child: const Text('Lihat'),
+                                      )
+                                    : const Text('-'),
+                              ),
                             ],
                           );
                         }).toList(),
@@ -782,6 +841,85 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
         const SizedBox(width: 6),
         Text(label),
       ],
+    );
+  }
+
+  void _showFotoViewer(String fotoUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.network(
+                  fotoUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 280,
+                      color: Colors.black45,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                  : null,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text('Memuat foto...', style: TextStyle(color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 220,
+                    color: Colors.black45,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48),
+                          const SizedBox(height: 8),
+                          const Text('Gagal memuat foto', style: TextStyle(color: Colors.white70)),
+                          const SizedBox(height: 8),
+                          Text(
+                            fotoUrl,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white60, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

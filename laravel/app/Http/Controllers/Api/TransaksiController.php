@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Business;
 use App\Models\Cabang;
 use App\Models\Transaksi;
 use Illuminate\Http\Request;
@@ -21,24 +22,39 @@ class TransaksiController extends Controller
                 ->orderByDesc('tanggal')
                 ->orderByDesc('id');
 
-            if ($user?->role === 'karyawan') {
+            if ($user?->role === 'owner') {
+                // Scope ke cabang-cabang milik business owner ini saja
+                $cabangIds = \App\Models\Business::where('owner_id', $user->id)
+                    ->first()
+                    ?->cabangs()
+                    ->pluck('id') ?? collect();
+
+                $query->whereIn('cabang_id', $cabangIds);
+            } elseif ($user?->role === 'karyawan' || $user?->role === 'kepala_cabang') {
                 $query->where('cabang_id', $user->cabang_id);
+            } else {
+                // Role tidak dikenali — kembalikan kosong
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Daftar transaksi',
+                    'data'    => [],
+                ]);
             }
 
-            $transaksis = $query->get([
-                'id', 'cabang_id', 'kategori_id', 'user_id', 'jenis', 'nominal', 'tanggal', 'keterangan', 'foto_bukti', 'is_modal_kiriman',
-            ]);
+            // Jangan gunakan array kolom di get() karena akan prevent loading relasi
+            // Relasi 'user' diperlukan untuk accessor 'created_by_name'
+            $transaksis = $query->get();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Daftar transaksi',
-                'data' => $transaksis,
+                'data'    => $transaksis,
             ]);
         } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memuat data transaksi',
-                'errors' => ['exception' => $e->getMessage()],
+                'errors'  => ['exception' => $e->getMessage()],
             ], 500);
         }
     }
@@ -84,16 +100,18 @@ class TransaksiController extends Controller
                 ], 403);
             }
 
-            if ($user->role === 'karyawan' && $payload['jenis'] === 'pemasukan') {
+            // Validasi pengeluaran-first untuk Karyawan dan Kepala Cabang
+            if (($user->role === 'karyawan' || $user->role === 'kepala_cabang') && $payload['jenis'] === 'pemasukan') {
                 $sudahAdaPengeluaran = Transaksi::where('cabang_id', $payload['cabang_id'])
                     ->where('jenis', 'pengeluaran')
-                    ->whereDate('tanggal', now()->toDateString())
+                    ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
                     ->exists();
 
                 if (! $sudahAdaPengeluaran) {
+                    $roleName = $user->role === 'kepala_cabang' ? 'Kepala cabang' : 'Karyawan';
                     return response()->json([
                         'success' => false,
-                        'message' => 'Karyawan wajib input pengeluaran terlebih dahulu sebelum mencatat pemasukan hari ini.',
+                        'message' => $roleName . ' wajib input pengeluaran terlebih dahulu sebelum mencatat pemasukan hari ini.',
                     ], 422);
                 }
             }
@@ -116,6 +134,17 @@ class TransaksiController extends Controller
             ]);
 
             $transaksi->load(['cabang', 'kategori', 'user']);
+
+            // Debug logging
+            \Log::info('Transaksi Created', [
+                'id' => $transaksi->id,
+                'user_id' => $transaksi->user_id,
+                'foto_bukti' => $transaksi->foto_bukti,
+                'user_loaded' => $transaksi->relationLoaded('user'),
+                'user_exists' => $transaksi->user !== null,
+                'user_name' => $transaksi->user?->name,
+                'created_by_name_accessor' => $transaksi->created_by_name,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -221,9 +250,18 @@ class TransaksiController extends Controller
             ], 401);
         }
 
+        // Validasi pengeluaran-first berlaku untuk Karyawan dan Kepala Cabang
+        if ($user->role !== 'karyawan' && $user->role !== 'kepala_cabang') {
+            // Owner tidak perlu validasi ini, langsung kembalikan true
+            return response()->json([
+                'success' => true,
+                'sudah_ada_pengeluaran' => true,
+            ]);
+        }
+
         $ada = Transaksi::where('cabang_id', $user->cabang_id)
             ->where('jenis', 'pengeluaran')
-            ->whereDate('tanggal', now()->toDateString())
+            ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
             ->exists();
 
         return response()->json([
@@ -237,7 +275,18 @@ class TransaksiController extends Controller
         $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $base64);
         $imageData = base64_decode($imageData);
         $fileName = 'bukti/' . uniqid() . '.jpg';
-        Storage::disk('public')->put($fileName, $imageData);
+        
+        $saved = Storage::disk('public')->put($fileName, $imageData);
+        
+        // Debug logging
+        \Log::info('Save Foto Bukti', [
+            'filename' => $fileName,
+            'saved' => $saved,
+            'exists' => Storage::disk('public')->exists($fileName),
+            'full_path' => Storage::disk('public')->path($fileName),
+            'size' => strlen($imageData),
+        ]);
+        
         return $fileName;
     }
 

@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/kasentra_dashboard_filters.dart';
 import '../widgets/stat_card.dart';
+import 'owner/pending_employees_page.dart';
 
 class HomePage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
   String? _selectedCabangId;
   List<Cabang> _cabangs = [];
+  int _pendingEmployeeCount = 0; // badge untuk owner
 
   // Cache hasil perhitungan agar build tidak berat (terutama di web/tablet)
   List<Transaksi> _filtered = const [];
@@ -52,6 +54,45 @@ class _HomePageState extends State<HomePage> {
       _selectedCabangId = AuthService.currentUser!.cabangId;
     }
     _loadCabangs();
+    if (widget.role == UserRole.owner) _loadPendingCount();
+    // Initial compute setelah data ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recompute());
+  }
+
+  Future<void> _loadPendingCount() async {
+    final user = AuthService.currentUser;
+    if (user == null) return;
+    // Dapatkan businessId dari cabang pertama milik owner
+    try {
+      final cabangs = await DomainApiService.fetchCabangs();
+      if (!mounted || cabangs.isEmpty) return;
+      final bizId = cabangs.first.businessId;
+      if (bizId == null || bizId.isEmpty) return;
+      final count = await DomainApiService.fetchPendingEmployeeCount(bizId);
+      if (!mounted) return;
+      setState(() => _pendingEmployeeCount = count);
+    } catch (_) {}
+  }
+
+  void _openPendingEmployees() async {
+    try {
+      final cabangs = await DomainApiService.fetchCabangs();
+      if (!mounted || cabangs.isEmpty) return;
+      final bizId = cabangs.first.businessId;
+      if (bizId == null || bizId.isEmpty) return;
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PendingEmployeesPage(
+            businessId: bizId,
+            businessName: 'Usaha Saya',
+          ),
+        ),
+      );
+      // Refresh badge setelah kembali
+      _loadPendingCount();
+    } catch (_) {}
   }
 
   Future<void> _loadCabangs() async {
@@ -59,6 +100,8 @@ class _HomePageState extends State<HomePage> {
       final list = await DomainApiService.fetchCabangs();
       if (!mounted) return;
       setState(() => _cabangs = list);
+      // Recompute setelah cabangs loaded agar modal awal muncul
+      _recompute();
     } catch (_) {}
   }
 
@@ -229,15 +272,55 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.notifications_none,
-                        color: Colors.white,
+                    // Ikon notifikasi — untuk Owner menampilkan badge pending karyawan
+                    GestureDetector(
+                      onTap: widget.role == UserRole.owner
+                          ? _openPendingEmployees
+                          : null,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.notifications_none,
+                              color: Colors.white,
+                            ),
+                          ),
+                          // Badge hanya muncul untuk owner jika ada pending
+                          if (widget.role == UserRole.owner &&
+                              _pendingEmployeeCount > 0)
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  _pendingEmployeeCount > 99
+                                      ? '99+'
+                                      : '$_pendingEmployeeCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -262,9 +345,14 @@ class _HomePageState extends State<HomePage> {
                           cabangs: _cabangs,
                           selectedCabangId: _selectedCabangId,
                           selectedPeriode: filter,
-                          onCabangChanged: (v) =>
-                              setState(() => _selectedCabangId = v),
-                          onPeriodeChanged: (v) => setState(() => filter = v),
+                          onCabangChanged: (v) {
+                            setState(() => _selectedCabangId = v);
+                            _recompute(); // Recompute saat cabang berubah
+                          },
+                          onPeriodeChanged: (v) {
+                            setState(() => filter = v);
+                            _recompute(); // Recompute saat periode berubah
+                          },
                         ),
                         const SizedBox(height: 20),
                         _buildSummarySection(context),

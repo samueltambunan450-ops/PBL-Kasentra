@@ -42,13 +42,28 @@ class Cabang extends Model
         return $this->belongsTo(Business::class, 'business_id');
     }
 
+    public function branchHeads(): HasMany
+    {
+        return $this->hasMany(BranchHead::class, 'branch_id');
+    }
+
+    public function activeBranchHead(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BranchHead::class, 'branch_id')->where('is_active', true);
+    }
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class, 'branch_id');
+    }
+
     public function isOpen(): bool
     {
         if (!$this->jam_buka || !$this->jam_tutup) {
             return true;
         }
 
-        $now = now()->format('H:i:s');
+        $now = now('Asia/Jakarta')->format('H:i:s');
         return $now >= $this->jam_buka && $now <= $this->jam_tutup;
     }
 }

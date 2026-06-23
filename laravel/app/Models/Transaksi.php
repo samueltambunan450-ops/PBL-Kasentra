@@ -30,6 +30,10 @@ class Transaksi extends Model
         'is_modal_kiriman' => 'boolean',
     ];
 
+    protected $appends = [
+        'created_by_name',
+    ];
+
     public function cabang(): BelongsTo
     {
         return $this->belongsTo(Cabang::class, 'cabang_id');
@@ -43,5 +47,14 @@ class Transaksi extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Accessor untuk nama pembuat transaksi.
+     * Mengembalikan nama user atau "Tidak diketahui" jika user_id NULL.
+     */
+    public function getCreatedByNameAttribute(): string
+    {
+        return $this->user?->name ?? 'Tidak diketahui';
     }
 }

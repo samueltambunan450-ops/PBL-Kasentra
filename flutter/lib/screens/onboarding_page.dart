@@ -5,9 +5,13 @@ import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/kasentra_logo.dart';
 import '../widgets/kasentra_option_card.dart';
-import 'join_business_page.dart';
+import 'redeem_invite_page.dart';
 import 'setup_business_page.dart';
 
+/// Halaman onboarding setelah login Google.
+/// Hanya 2 pilihan: Owner (buat usaha baru) atau Kepala Cabang (redeem kode).
+/// Role "karyawan" tidak lagi bisa mendaftar lewat app — karyawan adalah
+/// data referensi yang dikelola oleh Kepala Cabang.
 class OnboardingPage extends StatelessWidget {
   final AppUser user;
 
@@ -24,7 +28,9 @@ class OnboardingPage extends StatelessWidget {
           child: SingleChildScrollView(
             padding: Responsive.pagePadding(context),
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isWide ? 700 : Responsive.formMaxWidth(context)),
+              constraints: BoxConstraints(
+                maxWidth: isWide ? 560 : Responsive.formMaxWidth(context),
+              ),
               child: Column(
                 children: [
                   const SizedBox(height: 16),
@@ -36,7 +42,7 @@ class OnboardingPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Pilih cara Anda ingin memulai di KASENTRA',
+                    'Pilih peran Anda di KASENTRA',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey.shade600, height: 1.4),
                   ),
@@ -45,15 +51,15 @@ class OnboardingPage extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: _buildJoinCard(context)),
+                        Expanded(child: _buildOwnerCard(context)),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildCreateCard(context)),
+                        Expanded(child: _buildHeadCard(context)),
                       ],
                     )
                   else ...[
-                    _buildJoinCard(context),
+                    _buildOwnerCard(context),
                     const SizedBox(height: 16),
-                    _buildCreateCard(context),
+                    _buildHeadCard(context),
                   ],
                 ],
               ),
@@ -64,29 +70,29 @@ class OnboardingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildJoinCard(BuildContext context) {
+  Widget _buildOwnerCard(BuildContext context) {
     return KasentraOptionCard(
-      icon: Icons.person_outline,
-      title: 'Gabung sebagai Karyawan',
-      subtitle: 'Masukkan kode undangan dari pemilik usaha',
+      icon: Icons.store_outlined,
+      title: 'Pemilik Usaha',
+      subtitle: 'Daftarkan usaha baru dan kelola semua cabang',
       onTap: () {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => JoinBusinessPage(user: user)),
+          MaterialPageRoute(builder: (_) => SetupBusinessPage(user: user)),
         );
       },
     );
   }
 
-  Widget _buildCreateCard(BuildContext context) {
+  Widget _buildHeadCard(BuildContext context) {
     return KasentraOptionCard(
-      icon: Icons.store_outlined,
-      title: 'Buat Usaha Baru',
-      subtitle: 'Daftarkan usaha Anda sebagai pemilik',
+      icon: Icons.manage_accounts_outlined,
+      title: 'Kepala Cabang',
+      subtitle: 'Aktivasi akun dengan kode undangan dari pemilik usaha',
       onTap: () {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => SetupBusinessPage(user: user)),
+          MaterialPageRoute(builder: (_) => RedeemInvitePage(user: user)),
         );
       },
     );

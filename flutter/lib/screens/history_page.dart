@@ -250,6 +250,25 @@ class _HistoryPageState extends State<HistoryPage> {
                 '${t.tanggal.day} ${_namaBulan(t.tanggal.month)} ${t.tanggal.year}',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.person_outline,
+                    size: 12,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Dibuat oleh: ${t.createdByName}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
               if (t.fotoBukti != null) ...[
                 const SizedBox(height: 6),
                 GestureDetector(
@@ -376,6 +395,11 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _lihatFoto(String fotoUrl) {
+    // Debug logging
+    final fullUrl = ApiService.buildFotoUrl(fotoUrl);
+    print('🔍 DEBUG Foto: relativePath=$fotoUrl');
+    print('🔍 DEBUG Foto: fullUrl=$fullUrl');
+    
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -383,24 +407,95 @@ class _HistoryPageState extends State<HistoryPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              child: Image.network(
-                '${ApiService.baseUrl.replaceFirst('/api', '')}/storage/$fotoUrl',
-
-                fit: BoxFit.cover,
-                loadingBuilder: (_, child, progress) => progress == null
-                    ? child
-                    : const Center(child: CircularProgressIndicator()),
-                errorBuilder: (_, __, ___) => const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 400),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: Image.network(
+                  fullUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                  errorBuilder: (context, error, stackTrace) {
+                    // Debug error
+                    print('❌ ERROR Loading Image: $error');
+                    print('❌ URL: $fullUrl');
+                    print('❌ StackTrace: $stackTrace');
+                    
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.broken_image_outlined,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Foto tidak dapat dimuat',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Kemungkinan penyebab:',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '• File foto tidak ditemukan di server\n'
+                                  '• Laravel server tidak running (php artisan serve)\n'
+                                  '• Koneksi jaringan bermasalah',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.red.shade800,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'URL: $fullUrl',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

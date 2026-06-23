@@ -42,10 +42,12 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   Uint8List? _fotoBuktiBytes;
   String? _fotoBuktiBase64;
   bool _isModalKiriman = false;
-  bool _sudahAdaPengeluaran = true;
+  bool _sudahAdaPengeluaran = false;
   List<Cabang> _cabangs = [];
   List<Kategori> _kategoris = [];
   DateTime? tanggal = DateTime.now();
+  bool _isLoadingGaji = false; // Loading state untuk auto-hitung gaji
+  String? _infoGaji; // Info text untuk Owner tentang kalkulasi gaji
 
   @override
   void initState() {
@@ -397,10 +399,25 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.nama)))
                     .toList(),
                 decoration: const InputDecoration(),
-                onChanged: (v) => setState(() {
-                  _selectedCabangId = v;
-                  kategori = null;
-                }),
+                onChanged: (v) {
+                  setState(() {
+                    _selectedCabangId = v;
+                    // Reset kategori saat cabang berubah
+                    final oldKategori = kategori;
+                    kategori = null;
+                    _infoGaji = null;
+                    
+                    // Jika sebelumnya kategori Gaji, langsung trigger ulang setelah delay
+                    if (oldKategori?.toLowerCase() == 'gaji' && v != null) {
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (mounted) {
+                          setState(() => kategori = oldKategori);
+                          _autoFillGaji();
+                        }
+                      });
+                    }
+                  });
+                },
                 hint: const Text('Pilih cabang'),
               ),
               const SizedBox(height: 16),
@@ -517,10 +534,16 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     final color = type == TransaksiJenis.pemasukan ? AppColors.income : AppColors.expense;
 
     return GestureDetector(
-      onTap: () => setState(() {
-        jenis = type;
-        kategori = null;
-      }),
+      onTap: () {
+        setState(() {
+          jenis = type;
+          kategori = null;
+        });
+        // Re-check status pengeluaran saat user switch ke "pemasukan"
+        if (!AuthService.isOwner() && type == TransaksiJenis.pemasukan) {
+          _checkPengeluaranStatus();
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -559,11 +582,81 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
               .map((k) => DropdownMenuItem(value: k.nama, child: Text(k.nama)))
               .toList(),
           decoration: const InputDecoration(),
-          onChanged: (v) => setState(() => kategori = v),
+          onChanged: (v) {
+            setState(() => kategori = v);
+            // Auto-hitung gaji jika kategori Gaji dipilih oleh Owner
+            if (v != null && v.toLowerCase() == 'gaji' && 
+                AuthService.isOwner() && 
+                _selectedCabangId != null) {
+              _autoFillGaji();
+            } else {
+              setState(() {
+                _infoGaji = null; // Reset info jika bukan kategori Gaji
+              });
+            }
+          },
           hint: const Text('Pilih kategori'),
         ),
+        // Info gaji (ditampilkan saat kategori Gaji dipilih)
+        if (_infoGaji != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _infoGaji!,
+                    style: const TextStyle(fontSize: 11, color: AppColors.primaryDark),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  /// Auto-fill nominal saat Owner memilih kategori "Gaji"
+  Future<void> _autoFillGaji() async {
+    if (_selectedCabangId == null || _isLoadingGaji) return;
+    
+    setState(() {
+      _isLoadingGaji = true;
+      _infoGaji = 'Menghitung total gaji karyawan...';
+    });
+
+    try {
+      final data = await DomainApiService.fetchTotalSalary(_selectedCabangId!);
+      final totalGaji = data['total_gaji'] as double;
+      final jumlahKaryawan = data['jumlah_karyawan'] as int;
+
+      if (!mounted) return;
+
+      // Auto-fill nominal
+      nominalC.text = totalGaji.toStringAsFixed(0);
+
+      setState(() {
+        _infoGaji = jumlahKaryawan > 0
+            ? 'Dihitung dari $jumlahKaryawan karyawan aktif (approved). Nominal dapat diubah manual.'
+            : 'Tidak ada karyawan aktif (approved) di cabang ini. Isi manual.';
+        _isLoadingGaji = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _infoGaji = 'Gagal menghitung total gaji: $e';
+        _isLoadingGaji = false;
+      });
+    }
   }
 
   Widget _buildCatatanField() {

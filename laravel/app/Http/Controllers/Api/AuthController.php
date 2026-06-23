@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApiToken;
+use App\Models\BranchHead;
 use App\Models\User;
 use App\Models\Invitation;
 use App\Models\Business;
 use App\Models\Cabang;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Database\QueryException as DbQueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -120,25 +120,47 @@ class AuthController extends Controller
             return response()->json(['message' => 'Kode salah atau kadaluarsa'], 422);
         }
 
-        $user->role = 'karyawan';
-        $user->cabang_id = $invitation->cabang_id;
-        $user->save();
+        DB::transaction(function () use ($user, $invitation) {
+            // Jika undangan untuk kepala cabang (branch_head_id ada)
+            if ($invitation->branch_head_id) {
+                $branchHead = BranchHead::find($invitation->branch_head_id);
+                if ($branchHead) {
+                    $branchHead->user_id   = $user->id;
+                    $branchHead->is_active = true;
+                    $branchHead->save();
+                }
+                $user->role      = 'kepala_cabang';
+                $user->cabang_id = $invitation->cabang_id;
+            } else {
+                // Undangan karyawan biasa
+                $user->role      = 'karyawan';
+                $user->cabang_id = $invitation->cabang_id;
+            }
+            $user->save();
 
-        $invitation->used_at = now();
-        $invitation->save();
+            $invitation->used_at = now();
+            $invitation->used_by = $user->id;
+            $invitation->save();
+        });
+
+        $message = $user->role === 'kepala_cabang'
+            ? 'Berhasil bergabung sebagai kepala cabang'
+            : 'Berhasil bergabung sebagai karyawan';
 
         return response()->json([
-            'message' => 'Berhasil bergabung sebagai karyawan',
-            'user' => $user->load('cabang'),
+            'message' => $message,
+            'user'    => $user->load('cabang'),
         ]);
     }
 
     public function setupBusiness(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'business_name' => ['required', 'string'],
-            'business_type' => ['required', 'string'],
-            'branch_name' => ['required', 'string'],
+            'business_name'    => ['required', 'string', 'max:255'],
+            'business_type'    => ['required', 'string', 'max:100'],
+            'branch_name'      => ['required', 'string', 'max:255'],
+            'branch_address'   => ['required', 'string', 'max:500'],
+            'branch_modal_awal'=> ['required', 'numeric', 'min:0'],
         ]);
 
         $user = $request->attributes->get('authUser');
@@ -152,14 +174,14 @@ class AuthController extends Controller
 
         $business = Business::query()->create([
             'owner_id' => $user->id,
-            'nama' => $data['business_name'],
-            'jenis' => $data['business_type'],
+            'nama'     => $data['business_name'],
+            'jenis'    => $data['business_type'],
         ]);
 
         Cabang::query()->create([
-            'nama' => $data['branch_name'],
-            'alamat' => '',
-            'modal_awal' => 0,
+            'nama'        => $data['branch_name'],
+            'alamat'      => $data['branch_address'],
+            'modal_awal'  => $data['branch_modal_awal'],
             'business_id' => $business->id,
         ]);
 
@@ -169,7 +191,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Usaha berhasil dibuat',
-            'user' => $user->load('cabang'),
+            'user'    => $user->load('cabang'),
         ]);
     }
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -18,26 +20,49 @@ class SetupBusinessPage extends StatefulWidget {
 }
 
 class _SetupBusinessPageState extends State<SetupBusinessPage> {
-  final TextEditingController _businessNameController = TextEditingController();
-  final TextEditingController _branchNameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _businessNameController = TextEditingController();
+  final _branchNameController   = TextEditingController();
+  final _branchAddressController = TextEditingController();
+  final _modalAwalController    = TextEditingController();
+
   String _businessType = 'Kuliner';
   bool _isLoading = false;
 
+  // Formatter Rupiah — sama persis dengan manage_cabang_page.dart
+  static String _formatRupiah(double value) =>
+      NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+          .format(value);
+
+  // Parser angka — sama persis dengan manage_cabang_page.dart
+  static double _parseNumber(String input) {
+    return double.tryParse(
+          input.replaceAll('.', '').replaceAll(',', '.').replaceAll(' ', ''),
+        ) ??
+        0;
+  }
+
+  @override
+  void dispose() {
+    _businessNameController.dispose();
+    _branchNameController.dispose();
+    _branchAddressController.dispose();
+    _modalAwalController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
-    if (_businessNameController.text.trim().isEmpty || _branchNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lengkapi semua kolom terlebih dahulu.')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       final user = await DomainApiService.setupBusiness(
-        businessName: _businessNameController.text.trim(),
-        businessType: _businessType,
-        branchName: _branchNameController.text.trim(),
+        businessName   : _businessNameController.text.trim(),
+        businessType   : _businessType,
+        branchName     : _branchNameController.text.trim(),
+        branchAddress  : _branchAddressController.text.trim(),
+        branchModalAwal: _parseNumber(_modalAwalController.text.trim()),
       );
       await AuthService.updateCurrentUser(user);
       if (!mounted) return;
@@ -48,7 +73,10 @@ class _SetupBusinessPageState extends State<SetupBusinessPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal membuat usaha: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Gagal membuat usaha: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -80,7 +108,7 @@ class _SetupBusinessPageState extends State<SetupBusinessPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Isi data usaha untuk memulai pencatatan keuangan.',
+                    'Isi data usaha dan cabang utama untuk memulai pencatatan keuangan.',
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 24),
@@ -97,62 +125,151 @@ class _SetupBusinessPageState extends State<SetupBusinessPage> {
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const KasentraFormLabel('Nama Usaha'),
-                        TextField(
-                          controller: _businessNameController,
-                          decoration: const InputDecoration(
-                            hintText: 'Contoh: Sego Pecel Mas Tyo',
-                            prefixIcon: Icon(Icons.store_outlined),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ── Nama Usaha ──────────────────────────────────────
+                          const KasentraFormLabel('Nama Usaha'),
+                          TextFormField(
+                            controller: _businessNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              hintText: 'Contoh: Sego Pecel Mas Tyo',
+                              prefixIcon: Icon(Icons.store_outlined),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Nama usaha tidak boleh kosong'
+                                : null,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        const KasentraFormLabel('Nama Cabang Utama'),
-                        TextField(
-                          controller: _branchNameController,
-                          decoration: const InputDecoration(
-                            hintText: 'Contoh: Cabang Pusat',
-                            prefixIcon: Icon(Icons.location_on_outlined),
+                          const SizedBox(height: 16),
+
+                          // ── Nama Cabang Utama ───────────────────────────────
+                          const KasentraFormLabel('Nama Cabang Utama'),
+                          TextFormField(
+                            controller: _branchNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              hintText: 'Contoh: Cabang Pusat',
+                              prefixIcon: Icon(Icons.storefront_outlined),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Nama cabang tidak boleh kosong'
+                                : null,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        const KasentraFormLabel('Jenis Usaha'),
-                        DropdownButtonFormField<String>(
-                          initialValue: _businessType,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.business_outlined),
+                          const SizedBox(height: 16),
+
+                          // ── Alamat Cabang (BARU) ────────────────────────────
+                          const KasentraFormLabel('Alamat Cabang Utama'),
+                          TextFormField(
+                            controller: _branchAddressController,
+                            keyboardType: TextInputType.streetAddress,
+                            textCapitalization: TextCapitalization.sentences,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              hintText: 'Contoh: Jl. Pahlawan No. 12, Semarang',
+                              prefixIcon: Padding(
+                                padding: EdgeInsets.only(bottom: 24),
+                                child: Icon(Icons.location_on_outlined),
+                              ),
+                              alignLabelWithHint: true,
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Alamat cabang tidak boleh kosong'
+                                : null,
                           ),
-                          items: const [
-                            DropdownMenuItem(value: 'Kuliner', child: Text('Kuliner')),
-                            DropdownMenuItem(value: 'Toko', child: Text('Toko')),
-                            DropdownMenuItem(value: 'Jasa', child: Text('Jasa')),
-                            DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) setState(() => _businessType = value);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        const KasentraInfoBox(
-                          message: 'Anda dapat menambahkan cabang lain setelah usaha berhasil dibuat.',
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 48,
-                          child: FilledButton(
-                            onPressed: _isLoading ? null : _submit,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Text('Simpan & Lanjut', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 16),
+
+                          // ── Modal Awal (BARU) ───────────────────────────────
+                          const KasentraFormLabel('Modal Awal Cabang (Rp)'),
+                          TextFormField(
+                            controller: _modalAwalController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: const InputDecoration(
+                              hintText: 'Contoh: 5000000',
+                              prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                              prefixText: 'Rp ',
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Modal awal tidak boleh kosong';
+                              }
+                              final val = double.tryParse(v.trim());
+                              if (val == null) return 'Masukkan angka yang valid';
+                              if (val < 0) return 'Modal awal tidak boleh negatif';
+                              return null;
+                            },
+                            // Tampilkan preview format Rupiah di bawah field
+                            onChanged: (_) => setState(() {}),
                           ),
-                        ),
-                      ],
+                          // Preview format rupiah (seperti di manage_cabang_page)
+                          if (_modalAwalController.text.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, left: 4),
+                              child: Text(
+                                _formatRupiah(
+                                  _parseNumber(_modalAwalController.text),
+                                ),
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+
+                          // ── Jenis Usaha ─────────────────────────────────────
+                          const KasentraFormLabel('Jenis Usaha'),
+                          DropdownButtonFormField<String>(
+                            value: _businessType,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.business_outlined),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'Kuliner', child: Text('Kuliner')),
+                              DropdownMenuItem(value: 'Toko',    child: Text('Toko')),
+                              DropdownMenuItem(value: 'Jasa',    child: Text('Jasa')),
+                              DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) setState(() => _businessType = value);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          const KasentraInfoBox(
+                            message:
+                                'Anda dapat menambahkan cabang lain setelah usaha berhasil dibuat.',
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ── Tombol Submit ───────────────────────────────────
+                          SizedBox(
+                            height: 48,
+                            child: FilledButton(
+                              onPressed: _isLoading ? null : _submit,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Simpan & Lanjut',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

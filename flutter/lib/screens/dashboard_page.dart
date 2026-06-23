@@ -10,6 +10,7 @@ import 'home_page.dart';
 import 'history_page.dart';
 import 'profile_page.dart';
 import 'financial_report_page.dart';
+import 'karyawan/kepala_cabang_dashboard_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final AppUser user;
@@ -27,11 +28,36 @@ class _DashboardPageState extends State<DashboardPage> {
   int currentIndex = 0;
   bool _loading = true;
   List<Transaksi> _transaksi = [];
+  // Simpan userId terakhir yang dipakai untuk deteksi ganti akun
+  String? _lastUserId;
 
   @override
   void initState() {
     super.initState();
-    _refreshTransaksi();
+    _lastUserId = widget.user.id;
+    if (widget.user.isKepalaCabang) {
+      setState(() => _loading = false);
+    } else {
+      _refreshTransaksi();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Jika user berganti (ganti akun), wajib flush state dan re-fetch
+    if (oldWidget.user.id != widget.user.id) {
+      _lastUserId = widget.user.id;
+      setState(() {
+        _transaksi = [];
+        _loading = true;
+      });
+      if (!widget.user.isKepalaCabang) {
+        _refreshTransaksi();
+      } else {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   Future<void> _refreshTransaksi() async {
@@ -116,6 +142,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Kepala cabang punya dashboard khusus
+    if (widget.user.isKepalaCabang) {
+      return KepalaCabangDashboardPage(user: widget.user);
+    }
+
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
