@@ -22,12 +22,14 @@ class Transaksi extends Model
         'keterangan',
         'foto_bukti',
         'is_modal_kiriman',
+        'is_reviewed',
     ];
 
     protected $casts = [
         'tanggal' => 'date:Y-m-d',
         'nominal' => 'integer',
         'is_modal_kiriman' => 'boolean',
+        'is_reviewed' => 'boolean',
     ];
 
     protected $appends = [

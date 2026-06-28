@@ -153,11 +153,24 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Hapus cabang"),
-        content: Text("Yakin ingin menghapus ${c.nama}?"),
+        title: const Text("Hapus Cabang?"),
+        content: Text(
+          "Yakin ingin menghapus cabang ${c.nama}?\n\n"
+          "Tindakan ini tidak dapat dibatalkan.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Hapus")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Hapus"),
+          ),
         ],
       ),
     );
@@ -170,12 +183,31 @@ class _ManageCabangPageState extends State<ManageCabangPage> {
       await _loadCabangs();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Cabang berhasil dihapus"), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text("Cabang berhasil dihapus"),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
+      // Extract user-friendly error message from backend
+      String errorMessage = e.toString();
+      if (errorMessage.contains('masih memiliki data transaksi')) {
+        errorMessage = 'Cabang tidak dapat dihapus karena masih memiliki data transaksi';
+      } else if (errorMessage.contains('Kepala Cabang aktif')) {
+        errorMessage = 'Cabang tidak dapat dihapus karena masih memiliki Kepala Cabang aktif';
+      } else if (errorMessage.contains('karyawan aktif')) {
+        errorMessage = 'Cabang tidak dapat dihapus karena masih memiliki karyawan aktif';
+      } else {
+        errorMessage = 'Gagal menghapus cabang: $e';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal menghapus cabang: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
       );
     }
   }

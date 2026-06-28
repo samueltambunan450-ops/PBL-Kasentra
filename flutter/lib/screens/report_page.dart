@@ -874,6 +874,7 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   void _showFotoViewer(String fotoUrl) {
+    final token = AuthService.token;
     showDialog(
       context: context,
       barrierColor: Colors.black87,
@@ -892,6 +893,7 @@ class _ReportPageState extends State<ReportPage> {
                 child: Image.network(
                   fotoUrl,
                   fit: BoxFit.contain,
+                  headers: token != null ? {'Authorization': 'Bearer $token'} : null,
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return Container(

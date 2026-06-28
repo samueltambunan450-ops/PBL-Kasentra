@@ -43,10 +43,16 @@ class ApiService {
       cleanedPath = cleanedPath.substring(1);
     }
 
-    if (cleanedPath.startsWith('storage/')) {
-      return '$storageBaseUrl/$cleanedPath';
+    // Extract just the filename from paths like "bukti/xxx.jpg" or "storage/bukti/xxx.jpg"
+    String filename;
+    if (cleanedPath.contains('/')) {
+      filename = cleanedPath.split('/').last;
+    } else {
+      filename = cleanedPath;
     }
-    return '$storageBaseUrl/storage/$cleanedPath';
+
+    // Use API proxy endpoint instead of direct storage URL to fix CORS
+    return '$baseUrl/foto/$filename';
   }
 
   static Future<Map<String, String>> authHeaders(String? token) async {

@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchHeadController;
+use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\CabangController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\KaryawanController;
 use App\Http\Controllers\Api\KategoriController;
+use App\Http\Controllers\Api\TransaksiBesarController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +47,18 @@ Route::middleware('cors.api')->group(function (): void {
         Route::put('/transaksis/{id}', [TransaksiController::class, 'update']);
         Route::delete('/transaksis/{id}', [TransaksiController::class, 'destroy']);
         Route::get('/transaksis/cek-pengeluaran-hari-ini', [TransaksiController::class, 'cekPengeluaranHariIni']);
+        
+        // ── Foto Proxy (CORS fix) ───────────────────────────────────────────────
+        Route::get('/foto/{filename}', [TransaksiController::class, 'showFoto']);
+
+        // ── Businesses (Owner) ──────────────────────────────────────────────────
+        Route::get('/businesses/{id}', [BusinessController::class, 'show']);
+        Route::patch('/businesses/{id}/threshold', [BusinessController::class, 'updateThreshold']);
+
+        // ── Transaksi Besar (Owner monitoring) ──────────────────────────────────
+        Route::get('/transaksi-besar', [TransaksiBesarController::class, 'index']);
+        Route::get('/transaksi-besar/count', [TransaksiBesarController::class, 'count']);
+        Route::patch('/transaksi-besar/{id}/review', [TransaksiBesarController::class, 'markAsReviewed']);
 
         // ── Karyawan (existing - login-based) ───────────────────────────────────
         Route::get('/karyawans', [KaryawanController::class, 'index']);

@@ -461,4 +461,60 @@ class DomainApiService {
     ) as Map<String, dynamic>;
     return AppUser.fromMap(response['user'] as Map<String, dynamic>);
   }
+
+  // ========================================================================
+  // BAGIAN 3: Transaksi Besar / Mencurigakan
+  // ========================================================================
+
+  /// Get transaksi besar (above threshold) - Owner only
+  static Future<List<Transaksi>> fetchTransaksiBesar() async {
+    final response = await ApiService.get(
+      '/transaksi-besar',
+      token: AuthService.token,
+    ) as Map<String, dynamic>;
+    final list = response['data'] as List<dynamic>;
+    return list.map((m) => Transaksi.fromMap(m as Map<String, dynamic>)).toList();
+  }
+
+  /// Get count of unreviewed transaksi besar - Owner only
+  static Future<int> fetchTransaksiBesarCount() async {
+    final response = await ApiService.get(
+      '/transaksi-besar/count',
+      token: AuthService.token,
+    ) as Map<String, dynamic>;
+    return response['count'] as int;
+  }
+
+  /// Mark transaksi as reviewed - Owner only
+  static Future<void> markTransaksiAsReviewed(String transaksiId) async {
+    await ApiService.patch(
+      '/transaksi-besar/$transaksiId/review',
+      token: AuthService.token,
+      body: {},
+    );
+  }
+
+  /// Update business threshold - Owner only
+  static Future<void> updateBusinessThreshold(String businessId, int? threshold) async {
+    await ApiService.patch(
+      '/businesses/$businessId/threshold',
+      token: AuthService.token,
+      body: {'threshold_transaksi': threshold},
+    );
+  }
+
+  /// Get business info including threshold - Owner only
+  static Future<Map<String, dynamic>> getBusinessInfo(String businessId) async {
+    final response = await ApiService.get(
+      '/businesses/$businessId',
+      token: AuthService.token,
+    ) as Map<String, dynamic>;
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  // ========================================================================
+  // BAGIAN 4: Edit & Delete Cabang (already exists, just using existing methods)
+  // updateCabang() - already exists
+  // deleteCabang() - already exists
+  // ========================================================================
 }

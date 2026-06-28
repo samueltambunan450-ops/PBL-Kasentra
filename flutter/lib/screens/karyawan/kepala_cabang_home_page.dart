@@ -32,6 +32,7 @@ class KepalaCabangHomePage extends StatefulWidget {
 class _KepalaCabangHomePageState extends State<KepalaCabangHomePage> {
   PeriodeFilter filter = PeriodeFilter.bulanIni;
   Cabang? _cabang;
+  bool _isLoading = true; // Loading state
 
   List<Transaksi> _filtered = const [];
   int _totalMasuk = 0;
@@ -51,7 +52,10 @@ class _KepalaCabangHomePageState extends State<KepalaCabangHomePage> {
 
   Future<void> _loadCabang() async {
     final cabangId = widget.user.cabangId;
-    if (cabangId == null || cabangId.isEmpty) return;
+    if (cabangId == null || cabangId.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       final list = await DomainApiService.fetchCabangs();
       if (!mounted) return;
@@ -62,8 +66,11 @@ class _KepalaCabangHomePageState extends State<KepalaCabangHomePage> {
       setState(() {
         _cabang = c;
         _modalAwal = c.modalAwal;
+        _isLoading = false;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   double get modalAwal => _modalAwal;
@@ -216,6 +223,16 @@ class _KepalaCabangHomePageState extends State<KepalaCabangHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator during initial load
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.primary,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+    
     final isWide = !Responsive.isMobile(context);
     final cabangName = _cabang?.nama ?? 'Cabang Saya';
 

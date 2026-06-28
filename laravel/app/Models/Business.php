@@ -15,6 +15,7 @@ class Business extends Model
         'owner_id',
         'nama',
         'jenis',
+        'threshold_transaksi',
     ];
 
     public function owner(): BelongsTo

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/transaksi.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/common_page_scaffold.dart';
@@ -397,6 +398,7 @@ class _HistoryPageState extends State<HistoryPage> {
   void _lihatFoto(String fotoUrl) {
     // Debug logging
     final fullUrl = ApiService.buildFotoUrl(fotoUrl);
+    final token = AuthService.token;
     print('🔍 DEBUG Foto: relativePath=$fotoUrl');
     print('🔍 DEBUG Foto: fullUrl=$fullUrl');
     
@@ -416,6 +418,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: Image.network(
                   fullUrl,
                   fit: BoxFit.cover,
+                  headers: token != null ? {'Authorization': 'Bearer $token'} : null,
                   loadingBuilder: (_, child, progress) => progress == null
                       ? child
                       : const Center(

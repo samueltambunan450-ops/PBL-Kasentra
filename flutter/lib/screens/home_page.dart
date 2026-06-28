@@ -13,6 +13,7 @@ import '../utils/responsive.dart';
 import '../widgets/kasentra_dashboard_filters.dart';
 import '../widgets/stat_card.dart';
 import 'owner/pending_employees_page.dart';
+import 'owner/transaksi_besar_page.dart';
 
 class HomePage extends StatefulWidget {
   final List<Transaksi> transaksi;
@@ -35,6 +36,8 @@ class _HomePageState extends State<HomePage> {
   String? _selectedCabangId;
   List<Cabang> _cabangs = [];
   int _pendingEmployeeCount = 0; // badge untuk owner
+  int _transaksiBesarCount = 0; // badge transaksi besar untuk owner
+  bool _isLoading = true; // Loading state
 
   // Cache hasil perhitungan agar build tidak berat (terutama di web/tablet)
   List<Transaksi> _filtered = const [];
@@ -54,7 +57,10 @@ class _HomePageState extends State<HomePage> {
       _selectedCabangId = AuthService.currentUser!.cabangId;
     }
     _loadCabangs();
-    if (widget.role == UserRole.owner) _loadPendingCount();
+    if (widget.role == UserRole.owner) {
+      _loadPendingCount();
+      _loadTransaksiBesarCount();
+    }
     // Initial compute setelah data ready
     WidgetsBinding.instance.addPostFrameCallback((_) => _recompute());
   }
@@ -72,6 +78,16 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() => _pendingEmployeeCount = count);
     } catch (_) {}
+  }
+
+  Future<void> _loadTransaksiBesarCount() async {
+    try {
+      final count = await DomainApiService.fetchTransaksiBesarCount();
+      if (!mounted) return;
+      setState(() => _transaksiBesarCount = count);
+    } catch (_) {
+      // Silently fail - threshold mungkin belum diset
+    }
   }
 
   void _openPendingEmployees() async {
@@ -95,14 +111,29 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {}
   }
 
+  void _openTransaksiBesar() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TransaksiBesarPage()),
+    );
+    // Refresh badge setelah kembali
+    _loadTransaksiBesarCount();
+  }
+
   Future<void> _loadCabangs() async {
     try {
       final list = await DomainApiService.fetchCabangs();
       if (!mounted) return;
-      setState(() => _cabangs = list);
+      setState(() {
+        _cabangs = list;
+        _isLoading = false; // Done loading
+      });
       // Recompute setelah cabangs loaded agar modal awal muncul
       _recompute();
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
   double get modalAwal => _modalAwalCached;
@@ -230,6 +261,16 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator during initial load
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.primary,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+    
     final isWide = !Responsive.isMobile(context);
     return Scaffold(
       backgroundColor: AppColors.primary,
@@ -273,56 +314,105 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     // Ikon notifikasi — untuk Owner menampilkan badge pending karyawan
-                    GestureDetector(
-                      onTap: widget.role == UserRole.owner
-                          ? _openPendingEmployees
-                          : null,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.notifications_none,
-                              color: Colors.white,
-                            ),
-                          ),
-                          // Badge hanya muncul untuk owner jika ada pending
-                          if (widget.role == UserRole.owner &&
-                              _pendingEmployeeCount > 0)
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Text(
-                                  _pendingEmployeeCount > 99
-                                      ? '99+'
-                                      : '$_pendingEmployeeCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                    if (widget.role == UserRole.owner) ...[
+                      // Warning icon untuk transaksi besar
+                      GestureDetector(
+                        onTap: _openTransaksiBesar,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
                               ),
                             ),
-                        ],
+                            // Badge transaksi besar
+                            if (_transaksiBesarCount > 0)
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.orange,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Text(
+                                    _transaksiBesarCount > 99
+                                        ? '99+'
+                                        : '$_transaksiBesarCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      // Bell icon untuk pending employees
+                      GestureDetector(
+                        onTap: _openPendingEmployees,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.notifications_none,
+                                color: Colors.white,
+                              ),
+                            ),
+                            // Badge pending employees
+                            if (_pendingEmployeeCount > 0)
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Text(
+                                    _pendingEmployeeCount > 99
+                                        ? '99+'
+                                        : '$_pendingEmployeeCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

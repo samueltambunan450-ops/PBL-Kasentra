@@ -9,6 +9,7 @@ import 'login_page.dart';
 import 'manage_cabang_page.dart';
 import 'manage_karyawan_page.dart'; // berisi KelolKepalaCabangPage (yang sudah ada)
 import 'manage_kategori_page.dart';
+import 'owner/threshold_settings_page.dart';
 
 class ProfilePage extends StatelessWidget {
   final AppUser user;
@@ -129,6 +130,13 @@ class ProfilePage extends StatelessWidget {
                       Icons.category_outlined,
                       'Kelola Kategori',
                       const ManageKategoriPage(),
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuTile(
+                      context,
+                      Icons.warning_amber_rounded,
+                      'Atur Batas Transaksi Besar',
+                      const ThresholdSettingsPage(),
                     ),
                     const Divider(height: 1),
                   ],

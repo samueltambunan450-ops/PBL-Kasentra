@@ -296,4 +296,37 @@ class TransaksiController extends Controller
             Storage::disk('public')->delete($path);
         }
     }
+
+    /**
+     * Proxy endpoint untuk serve foto bukti dengan CORS headers
+     * Mengatasi CORS issue saat Flutter Web load gambar dari Laravel
+     */
+    public function showFoto(Request $request, string $filename): mixed
+    {
+        try {
+            $path = 'bukti/' . $filename;
+            
+            if (!Storage::disk('public')->exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Foto tidak ditemukan',
+                ], 404);
+            }
+
+            $file = Storage::disk('public')->get($path);
+            $mimeType = Storage::disk('public')->mimeType($path);
+
+            return response($file, 200)
+                ->header('Content-Type', $mimeType)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memuat foto',
+                'errors' => ['exception' => $e->getMessage()],
+            ], 500);
+        }
+    }
 }

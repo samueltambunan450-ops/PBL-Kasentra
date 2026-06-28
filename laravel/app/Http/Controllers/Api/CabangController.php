@@ -188,16 +188,64 @@ class CabangController extends Controller
         }
     }
 
-    public function destroy($id): JsonResponse
+    public function destroy(Request $request, $id): JsonResponse
     {
         try {
+            $user = $request->attributes->get('authUser');
+            if (!$user || $user->role !== 'owner') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hanya owner yang dapat menghapus cabang'
+                ], 403);
+            }
+
             $cabang = Cabang::findOrFail($id);
 
-            DB::transaction(function () use ($cabang) {
-                User::where('cabang_id', $cabang->id)->update(['cabang_id' => null]);
-                Transaksi::where('cabang_id', $cabang->id)->delete();
-                $cabang->delete();
-            });
+            // Pastikan cabang ini milik business owner yang login
+            $ownsIt = Business::where('owner_id', $user->id)
+                ->where('id', $cabang->business_id)
+                ->exists();
+            // Allow legacy cabangs (business_id null) for owner
+            if ($cabang->business_id !== null && !$ownsIt) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cabang tidak dimiliki oleh usaha Anda'
+                ], 403);
+            }
+
+            // Check if cabang has any transaksi
+            $hasTransaksi = Transaksi::where('cabang_id', $cabang->id)->exists();
+            if ($hasTransaksi) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cabang tidak dapat dihapus karena masih memiliki data transaksi'
+                ], 422);
+            }
+
+            // Check if cabang has active Kepala Cabang
+            $hasKepalaCabang = User::where('cabang_id', $cabang->id)
+                ->where('role', 'kepala_cabang')
+                ->exists();
+            if ($hasKepalaCabang) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cabang tidak dapat dihapus karena masih memiliki Kepala Cabang aktif'
+                ], 422);
+            }
+
+            // Check if cabang has any karyawan
+            $hasKaryawan = User::where('cabang_id', $cabang->id)
+                ->where('role', 'karyawan')
+                ->exists();
+            if ($hasKaryawan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cabang tidak dapat dihapus karena masih memiliki karyawan aktif'
+                ], 422);
+            }
+
+            // Safe to delete
+            $cabang->delete();
 
             return response()->json([
                 'success' => true,

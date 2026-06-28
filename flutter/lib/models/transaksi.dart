@@ -46,7 +46,7 @@ class Transaksi {
         isModalValue?.toString() == '1';
 
     return Transaksi(
-      id: map['id'],
+      id: map['id']?.toString() ?? '',
       tanggal: DateTime.parse(map['tanggal'].toString()),
       nominal: int.tryParse(map['nominal'].toString()) ?? 0,
       keterangan: map['keterangan']?.toString() ?? '',
@@ -54,8 +54,8 @@ class Transaksi {
           ? (map['kategori']['nama']?.toString() ?? '')
           : map['kategori']?.toString(),
       jenis: jenis,
-      cabangId: map['cabangId'] ?? map['cabang_id']?.toString() ?? '',
-      userId: map['userId'] ?? map['user_id']?.toString() ?? '',
+      cabangId: map['cabangId']?.toString() ?? map['cabang_id']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? map['user_id']?.toString() ?? '',
       fotoBukti: map['foto_bukti']?.toString(),
       isModalKiriman: isModal,
       createdByName: map['created_by_name']?.toString() ?? 

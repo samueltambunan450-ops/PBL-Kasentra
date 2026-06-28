@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import '../models/cabang.dart';
 import '../models/transaksi.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../services/domain_api_service.dart';
 import '../services/pdf_report_generator.dart';
 import '../utils/responsive.dart';
@@ -845,6 +846,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
   }
 
   void _showFotoViewer(String fotoUrl) {
+    final token = AuthService.token;
     showDialog(
       context: context,
       barrierColor: Colors.black87,
@@ -862,6 +864,7 @@ class _FinancialReportPageState extends State<FinancialReportPage> {
                 child: Image.network(
                   fotoUrl,
                   fit: BoxFit.contain,
+                  headers: token != null ? {'Authorization': 'Bearer $token'} : null,
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return Container(

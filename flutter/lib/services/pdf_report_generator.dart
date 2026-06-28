@@ -213,7 +213,21 @@ class PdfReportGenerator {
               pw.SizedBox(height: 4),
               pw.Row(
                 children: [
-                  pw.Text('📅 ', style: const pw.TextStyle(fontSize: 10)),
+                  pw.Container(
+                    width: 16,
+                    height: 16,
+                    margin: const pw.EdgeInsets.only(right: 6),
+                    decoration: pw.BoxDecoration(
+                      color: brandGreen,
+                      shape: pw.BoxShape.circle,
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        'P',
+                        style: const pw.TextStyle(fontSize: 9, color: PdfColors.white),
+                      ),
+                    ),
+                  ),
                   pw.Text(
                     'Periode: $periodLabel',
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.white),
@@ -223,7 +237,21 @@ class PdfReportGenerator {
               pw.SizedBox(height: 2),
               pw.Row(
                 children: [
-                  pw.Text('📍 ', style: const pw.TextStyle(fontSize: 10)),
+                  pw.Container(
+                    width: 16,
+                    height: 16,
+                    margin: const pw.EdgeInsets.only(right: 6),
+                    decoration: pw.BoxDecoration(
+                      color: brandGreen,
+                      shape: pw.BoxShape.circle,
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        'C',
+                        style: const pw.TextStyle(fontSize: 9, color: PdfColors.white),
+                      ),
+                    ),
+                  ),
                   pw.Text(
                     'Cabang: $cabangLabel',
                     style: const pw.TextStyle(fontSize: 9, color: PdfColors.white),
@@ -249,15 +277,15 @@ class PdfReportGenerator {
         pw.SizedBox(height: 10),
         pw.Row(
           children: [
-            _buildSummaryCard('Modal Awal', modalAwal, PdfColors.teal800, '●'),
+            _buildSummaryCard('Modal Awal', modalAwal, PdfColors.teal800, 'M'),
             pw.SizedBox(width: 8),
-            _buildSummaryCard('Total Pendapatan', totalPendapatan.toDouble(), incomeColor, '↑'),
+            _buildSummaryCard('Total Pendapatan', totalPendapatan.toDouble(), incomeColor, '+'),
             pw.SizedBox(width: 8),
-            _buildSummaryCard('Total Pengeluaran', totalPengeluaran.toDouble(), expenseColor, '↓'),
+            _buildSummaryCard('Total Pengeluaran', totalPengeluaran.toDouble(), expenseColor, '-'),
             pw.SizedBox(width: 8),
-            _buildSummaryCard('Laba / (Rugi)', labaBersih, warningColor, '⬤'),
+            _buildSummaryCard('Laba / (Rugi)', labaBersih, warningColor, '='),
             pw.SizedBox(width: 8),
-            _buildSummaryCard('Saldo Akhir Kas', saldoAkhirKas, brandGreen, '₿'),
+            _buildSummaryCard('Saldo Akhir Kas', saldoAkhirKas, brandGreen, 'Rp'),
           ],
         ),
         pw.SizedBox(height: 10),
@@ -277,7 +305,7 @@ class PdfReportGenerator {
               ),
               pw.SizedBox(height: 4),
               pw.Text(
-                'Laba Bersih = Total Pendapatan − Total Pengeluaran',
+                'Laba Bersih = Total Pendapatan - Total Pengeluaran',
                 style: const pw.TextStyle(fontSize: 8),
               ),
               pw.Text(
@@ -375,7 +403,25 @@ class PdfReportGenerator {
             ),
             child: pw.Row(
               children: [
-                pw.Text('↑ ', style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
+                pw.Container(
+                  width: 18,
+                  height: 18,
+                  margin: const pw.EdgeInsets.only(right: 8),
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.white,
+                    shape: pw.BoxShape.circle,
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      '+',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: incomeColor,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
                 pw.Text(
                   '2. DETAIL PENDAPATAN',
                   style: pw.TextStyle(
@@ -470,7 +516,25 @@ class PdfReportGenerator {
             ),
             child: pw.Row(
               children: [
-                pw.Text('↓ ', style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
+                pw.Container(
+                  width: 18,
+                  height: 18,
+                  margin: const pw.EdgeInsets.only(right: 8),
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.white,
+                    shape: pw.BoxShape.circle,
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      '-',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: expenseColor,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
                 pw.Text(
                   '3. DETAIL PENGELUARAN',
                   style: pw.TextStyle(
@@ -902,8 +966,11 @@ class PdfReportGenerator {
             ),
             child: pw.Center(
               child: pw.Text(
-                '📝',
-                style: const pw.TextStyle(fontSize: 16),
+                'i',
+                style: const pw.TextStyle(
+                  fontSize: 16,
+                  color: PdfColors.white,
+                ),
               ),
             ),
           ),
